@@ -141,3 +141,21 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Minecraft Bedrock
+BP.zip
+RP.zip
+
+# Builds locais
+build/
+dist/
+
+# Arquivos de sistema
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/
+
+# Logs
+*.log
