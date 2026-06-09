@@ -1,0 +1,1 @@
+scriptevent exile:clear_portals

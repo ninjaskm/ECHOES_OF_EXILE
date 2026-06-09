@@ -1,0 +1,12 @@
+{
+  "resource_pack_name": "echoes_of_exile_mvp",
+  "texture_name": "atlas.items",
+  "texture_data": {
+    "portal_shard": {
+      "textures": "textures/items/portal_shard"
+    },
+    "azurion": {
+      "textures": "textures/items/azurion"
+    }
+  }
+}

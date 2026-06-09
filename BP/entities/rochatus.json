@@ -1,0 +1,47 @@
+{
+  "format_version": "1.20.80",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "exile:rochatus",
+      "is_spawnable": true,
+      "is_summonable": true,
+      "is_experimental": false
+    },
+    "components": {
+      "minecraft:type_family": {
+        "family": ["rochatus", "monster", "exile_boss"]
+      },
+      "minecraft:nameable": {},
+      "minecraft:health": {
+        "value": 300,
+        "max": 600
+      },
+      "minecraft:collision_box": {
+        "width": 2.2,
+        "height": 1.8
+      },
+      "minecraft:movement": {
+        "value": 0.18
+      },
+      "minecraft:physics": {},
+      "minecraft:pushable": {
+        "is_pushable": false,
+        "is_pushable_by_piston": false
+      },
+      "minecraft:damage_sensor": {
+        "triggers": [
+          {
+            "cause": "fall",
+            "deals_damage": false
+          }
+        ]
+      },
+      "minecraft:knockback_resistance": {
+        "value": 0.8
+      },
+      "minecraft:loot": {
+        "table": "loot_tables/entities/rochatus.json"
+      }
+    }
+  }
+}

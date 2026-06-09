@@ -1,0 +1,1 @@
+scriptevent exile:spawn_rochatus

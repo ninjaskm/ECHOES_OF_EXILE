@@ -1,0 +1,3 @@
+scriptevent exile:reset_player
+scriptevent exile:reset_bosses
+scriptevent exile:clear_portals

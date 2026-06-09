@@ -1,0 +1,18 @@
+{
+  "format_version": "1.20.50",
+  "minecraft:item": {
+    "description": {
+      "identifier": "exile:azurion",
+      "menu_category": {
+        "category": "items"
+      }
+    },
+    "components": {
+      "minecraft:icon": "azurion",
+      "minecraft:max_stack_size": 64,
+      "minecraft:display_name": {
+        "value": "Azurion"
+      }
+    }
+  }
+}

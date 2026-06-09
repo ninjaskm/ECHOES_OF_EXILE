@@ -1,0 +1,21 @@
+{
+  "name": "echoes-of-exile",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "pack": "node scripts/create-mcpacks.js",
+    "pack:bump": "node scripts/bump-pack-version.js",
+    "pack:test": "npm run pack:bump && npm run build && npm run pack",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run build && node --test tests/*.test.js",
+    "test:watch": "node --test --watch tests/*.test.js",
+    "check:js": "node -e \"const fs=require('node:fs');const path=require('node:path');function walk(d){return fs.readdirSync(d,{withFileTypes:true}).flatMap(e=>{const p=path.join(d,e.name);return e.isDirectory()?walk(p):p.endsWith('.js')?[p]:[]})}for(const f of walk('BP/scripts')){require('node:child_process').execFileSync(process.execPath,['--check',f],{stdio:'inherit'})}console.log('JS syntax OK')\"",
+    "check:json": "node -e \"const fs=require('node:fs');const path=require('node:path');function walk(d){return fs.readdirSync(d,{withFileTypes:true}).flatMap(e=>{const p=path.join(d,e.name);return e.isDirectory()?walk(p):p.endsWith('.json')?[p]:[]})}for(const f of walk('.')){JSON.parse(fs.readFileSync(f,'utf8'))}console.log('JSON OK')\"",
+    "check": "npm run typecheck && npm test && npm run check:js && npm run check:json"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3"
+  }
+}

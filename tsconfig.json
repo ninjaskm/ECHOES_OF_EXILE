@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "Bundler",
+    "rootDir": "src/scripts",
+    "outDir": "BP/scripts",
+    "strict": true,
+    "noImplicitAny": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "allowJs": false,
+    "checkJs": false,
+    "declaration": false,
+    "sourceMap": false,
+    "skipLibCheck": true
+  },
+  "include": ["src/scripts/**/*.ts", "src/types/**/*.d.ts"]
+}

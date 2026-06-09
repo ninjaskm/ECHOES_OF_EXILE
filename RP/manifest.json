@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Echoes of Exile MVP RP v0.1.10",
+    "description": "Resource Pack MVP for Echoes of Exile. (v0.1.10)",
+    "uuid": "9148bec9-e474-4996-aef6-7d3e03d96225",
+    "version": [
+      0,
+      1,
+      10
+    ],
+    "min_engine_version": [
+      1,
+      21,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "8ced1581-6873-44a8-a607-c2ae43dd9be2",
+      "version": [
+        0,
+        1,
+        10
+      ]
+    }
+  ]
+}

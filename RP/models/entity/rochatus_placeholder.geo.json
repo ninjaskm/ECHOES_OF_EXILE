@@ -1,0 +1,33 @@
+{
+  "format_version": "1.12.0",
+  "minecraft:geometry": [
+    {
+      "description": {
+        "identifier": "geometry.rochatus_placeholder",
+        "texture_width": 64,
+        "texture_height": 64,
+        "visible_bounds_width": 4,
+        "visible_bounds_height": 3,
+        "visible_bounds_offset": [0, 1, 0]
+      },
+      "bones": [
+        {
+          "name": "body",
+          "pivot": [0, 12, 0],
+          "cubes": [
+            {
+              "origin": [-12, 0, -10],
+              "size": [24, 18, 20],
+              "uv": [0, 0]
+            },
+            {
+              "origin": [-4, 18, -4],
+              "size": [8, 8, 8],
+              "uv": [0, 38]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
