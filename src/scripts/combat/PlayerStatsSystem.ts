@@ -28,7 +28,9 @@ class PlayerStatsSystem {
     });
 
     world.afterEvents.entityDie.subscribe((event) => this.handleEntityDie(event));
-    eventBus.subscribe("boss:killed", ({ bossId, players }: BossKilledEvent) => this.rewardBossKill(bossId, players));
+    eventBus.subscribe("boss:killed", ({ bossId, players, location }: BossKilledEvent) =>
+      this.rewardBossKill(bossId, players, location)
+    );
     tickManager.every(20, () => this.regenerateMana());
   }
 
@@ -40,7 +42,7 @@ class PlayerStatsSystem {
     this.addXp(player as Player, XP_PER_COMMON_KILL);
   }
 
-  rewardBossKill(bossId: string, players: Player[]): void {
+  rewardBossKill(bossId: string, players: Player[], _location: BossKilledEvent["location"]): void {
     for (const player of players) {
       this.addXp(player, 120);
       player.sendMessage(`Boss defeated: ${bossId}.`);

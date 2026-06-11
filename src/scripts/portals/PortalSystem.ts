@@ -1,7 +1,8 @@
 import { system, world } from "@minecraft/server";
 import type { Player } from "@minecraft/server";
-import { ItemIds } from "../core/constants.js";
+import { BossIds, ItemIds } from "../core/constants.js";
 import { distance, normalizeVector } from "../core/math.js";
+import { saveSystem } from "../save/SaveSystem.js";
 import type { Portal, SystemContext } from "../types.js";
 
 const PORTAL_RADIUS = 2.5;
@@ -42,9 +43,18 @@ class PortalSystem {
     };
 
     this.portals.push(portal);
-    player.runCommandAsync("give @s exile:portal_shard 1").catch(() => {});
-    player.sendMessage("Tier 1 portal created. Drop a Portal Shard into it to awaken Rochatus.");
-    this.eventBus.publish("portal:spawned", { portal });
+    this.publishPortalSpawned(portal);
+  }
+
+  publishPortalSpawned(portal: Portal): void {
+    if (typeof this.eventBus.publish !== "function") return;
+
+    try {
+      const eventName = "portal:spawned" as const;
+      this.eventBus.publish(eventName, { portal });
+    } catch {
+      // Spawn notifications are optional; the portal is already registered.
+    }
   }
 
   clearPortals(): void {
@@ -70,8 +80,12 @@ class PortalSystem {
     if (!playersNearby) return;
 
     const { x, y, z } = portal.location;
-    portal.dimension.runCommandAsync(`particle minecraft:portal_particle ${x} ${y + 1.1} ${z}`).catch(() => {});
-    portal.dimension.runCommandAsync(`particle minecraft:basic_flame_particle ${x} ${y + 0.2} ${z}`).catch(() => {});
+    try {
+      portal.dimension.spawnParticle("minecraft:portal_particle", { x, y: y + 1.1, z });
+      portal.dimension.spawnParticle("minecraft:basic_flame_particle", { x, y: y + 0.2, z });
+    } catch {
+      // Portal particles are visual-only and should not break the gameplay tick.
+    }
   }
 
   tryActivatePortal(portal: Portal): void {
@@ -84,6 +98,13 @@ class PortalSystem {
     for (const entity of itemEntities) {
       const itemStack = entity.getComponent("minecraft:item")?.itemStack;
       if (itemStack?.typeId !== ItemIds.portalShard) continue;
+
+      if (saveSystem.isBossKilled(BossIds.rochatus)) {
+        for (const player of world.getAllPlayers()) {
+          player.sendMessage("Rochatus has already been defeated in this world.");
+        }
+        return;
+      }
 
       entity.remove();
       this.portals = this.portals.filter((candidate: Portal) => candidate.id !== portal.id);

@@ -21,9 +21,9 @@ export function normalizeVector(vector) {
 }
 export function applyKnockbackSafe(entity, directionX, directionZ, horizontalStrength, verticalStrength) {
     try {
-        entity.applyKnockback(directionX, directionZ, horizontalStrength, verticalStrength);
+        entity.applyKnockback({ x: directionX * horizontalStrength, z: directionZ * horizontalStrength }, verticalStrength);
     }
     catch {
-        entity.applyKnockback({ x: directionX, z: directionZ }, horizontalStrength, verticalStrength);
+        entity.applyKnockback(directionX, directionZ, horizontalStrength, verticalStrength);
     }
 }

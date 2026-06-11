@@ -29,7 +29,12 @@ Formato: `[DATA] — Descrição` agrupado por versão/fase.
 
 ## Fase 1 — MVP
 
-*(ainda sem entradas)*
+### [2026-06-10] Rochatus reward fixed
+
+- **O que foi feito:** a recompensa de Azurion do Rochatus voltou para o loot table nativo da entidade, garantindo drop no chão em vez de ir direto para o inventário via script
+- **Arquivos alterados:** `src/scripts/combat/PlayerStatsSystem.ts`, `BP/entities/rochatus.json`, `BP/scripts/combat/PlayerStatsSystem.js`, `tests/projectConventions.test.js`, `tests/rochatusRewards.test.js`
+- **Testes:** pendente de reexecução após o ajuste do fluxo de drop
+- **Observações:** o script agora só concede XP e mensagem de vitória; o loot table de `BP/loot_tables/entities/rochatus.json` passou a ser o ponto único da recompensa
 
 ---
 

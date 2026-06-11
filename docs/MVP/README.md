@@ -15,7 +15,7 @@ This MVP is a first playable technical slice for the Bedrock addon.
 - Portal Shard activation item.
 - Rochatus placeholder custom entity.
 - Scripted Rochatus fight with roll, falling spikes and earthquake attacks.
-- Guaranteed Azurion reward and world boss completion flag.
+- Ground-dropped Azurion reward from the Rochatus entity loot table and world boss completion flag.
 
 ## How to test in Minecraft
 

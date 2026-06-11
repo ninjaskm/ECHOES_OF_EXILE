@@ -20,7 +20,7 @@ class PlayerStatsSystem {
             player.sendMessage("Echoes of Exile MVP loaded. Use !exile help for dev commands.");
         });
         world.afterEvents.entityDie.subscribe((event) => this.handleEntityDie(event));
-        eventBus.subscribe("boss:killed", ({ bossId, players }) => this.rewardBossKill(bossId, players));
+        eventBus.subscribe("boss:killed", ({ bossId, players, location }) => this.rewardBossKill(bossId, players, location));
         tickManager.every(20, () => this.regenerateMana());
     }
     handleEntityDie({ damageSource, deadEntity }) {
@@ -31,7 +31,7 @@ class PlayerStatsSystem {
             return;
         this.addXp(player, XP_PER_COMMON_KILL);
     }
-    rewardBossKill(bossId, players) {
+    rewardBossKill(bossId, players, _location) {
         for (const player of players) {
             this.addXp(player, 120);
             player.sendMessage(`Boss defeated: ${bossId}.`);

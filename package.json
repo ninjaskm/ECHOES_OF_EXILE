@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
+    "dev": "npm run build",
+    "dev:link": "node scripts/link-dev-packs.js",
     "pack": "node scripts/create-mcpacks.js",
     "pack:bump": "node scripts/bump-pack-version.js",
     "pack:test": "npm run pack:bump && npm run build && npm run pack",

@@ -1,13 +1,13 @@
 {
   "format_version": 2,
   "header": {
-    "name": "Echoes of Exile MVP BP v0.1.10",
-    "description": "Behavior Pack MVP for Echoes of Exile. (v0.1.10)",
+    "name": "Echoes of Exile MVP BP v0.1.28",
+    "description": "Behavior Pack MVP for Echoes of Exile. (v0.1.28)",
     "uuid": "8646c5c7-8f0d-4b5b-87a9-d33543649fd2",
     "version": [
       0,
       1,
-      10
+      28
     ],
     "min_engine_version": [
       1,
@@ -22,7 +22,7 @@
       "version": [
         0,
         1,
-        10
+        28
       ]
     },
     {
@@ -32,7 +32,7 @@
       "version": [
         0,
         1,
-        10
+        28
       ],
       "entry": "scripts/main.js"
     }
@@ -40,18 +40,14 @@
   "dependencies": [
     {
       "module_name": "@minecraft/server",
-      "version": "1.13.0"
-    },
-    {
-      "module_name": "@minecraft/server-ui",
-      "version": "1.2.0"
+      "version": "2.7.0"
     },
     {
       "uuid": "9148bec9-e474-4996-aef6-7d3e03d96225",
       "version": [
         0,
         1,
-        10
+        28
       ]
     }
   ]

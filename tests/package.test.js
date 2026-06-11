@@ -123,6 +123,19 @@ describe("Bedrock pack archives", () => {
     assert.deepEqual(resourceDependency.version, resourceManifest.header.version);
   });
 
+  it("packages the behavior pack with the supported server API dependency set", () => {
+    const behaviorManifest = readManifest("EchoesOfExile_BP.mcpack");
+    const serverDependency = behaviorManifest.dependencies.find(
+      (dependency) => dependency.module_name === "@minecraft/server"
+    );
+    const serverUiDependency = behaviorManifest.dependencies.find(
+      (dependency) => dependency.module_name === "@minecraft/server-ui"
+    );
+
+    assert.equal(serverDependency?.version, "2.7.0");
+    assert.equal(serverUiDependency, undefined);
+  });
+
   it("keeps the in-game report version aligned with the behavior pack version", () => {
     const behaviorManifest = readManifest("EchoesOfExile_BP.mcpack");
     const reportVersionSource = readFileSync("BP/scripts/ui/packVersion.js", "utf8");

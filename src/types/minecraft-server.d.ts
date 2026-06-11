@@ -31,16 +31,16 @@ declare module "@minecraft/server" {
     nameTag: string;
     readonly location: Vector3;
     readonly dimension: Dimension;
-    isValid(): boolean;
+    readonly isValid: boolean;
     remove(): void;
     getComponent(componentId: "minecraft:item"): EntityItemComponent | undefined;
     getComponent(componentId: "minecraft:health"): EntityHealthComponent | undefined;
     getComponent(componentId: string): unknown;
+    applyKnockback(horizontalForce: VectorXZ, verticalStrength: number): void;
     applyKnockback(directionX: number, directionZ: number, horizontalStrength: number, verticalStrength: number): void;
-    applyKnockback(direction: VectorXZ, horizontalStrength: number, verticalStrength: number): void;
     applyDamage(amount: number, options?: DamageOptions): void;
     addEffect(effectType: string, duration: number, options?: EffectOptions): void;
-    runCommandAsync(command: string): Promise<unknown>;
+    runCommand(command: string): unknown;
   }
 
   export interface ScreenDisplay {
@@ -50,6 +50,7 @@ declare module "@minecraft/server" {
 
   export interface Player extends Entity {
     readonly typeId: "minecraft:player";
+    readonly isJumping: boolean;
     readonly onScreenDisplay: ScreenDisplay;
     sendMessage(message: string): void;
     playSound(soundId: string): void;
@@ -61,8 +62,9 @@ declare module "@minecraft/server" {
   export interface Dimension {
     readonly id: string;
     spawnEntity(identifier: string, location: Vector3): Entity;
+    spawnParticle(effectName: string, location: Vector3): void;
     getEntities(options?: EntityQueryOptions): Entity[];
-    runCommandAsync(command: string): Promise<unknown>;
+    runCommand(command: string): unknown;
   }
 
   export interface EntityQueryOptions {
@@ -121,6 +123,7 @@ declare module "@minecraft/server" {
 
   export interface System {
     readonly currentTick: number;
+    run(callback: () => void): number;
     runInterval(callback: () => void, tickInterval: number): number;
     runTimeout(callback: () => void, tickDelay: number): number;
     afterEvents: {

@@ -46,6 +46,7 @@ export interface SystemContext {
 export interface BossKilledEvent {
   bossId: string;
   players: Player[];
+  location: Entity["location"];
 }
 
 export interface PortalEvent {

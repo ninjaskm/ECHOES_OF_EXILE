@@ -73,7 +73,7 @@ Use this checklist after `npm run check` passes:
 - Confirm Rochatus spawns.
 - Use a feather and confirm dash consumes mana.
 - Defeat Rochatus.
-- Confirm Azurion reward is granted.
+- Confirm Azurion drops on the ground from the boss entity loot table.
 - Run `/function exile_stats`.
 - Confirm Rochatus is listed as defeated.
 

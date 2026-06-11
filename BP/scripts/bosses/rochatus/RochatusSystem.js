@@ -5,6 +5,8 @@ import { applyKnockbackSafe, distance, horizontalDistance, normalizeVector } fro
 import { saveSystem } from "../../save/SaveSystem.js";
 const BOSS_RADIUS = 40;
 const BASE_HEALTH = 240;
+const SPIKES_PER_WAVE = 6;
+const SPIKE_SPREAD_SIZE = 12;
 const DAMAGE = {
     roll: 10,
     spikes: 7,
@@ -67,6 +69,12 @@ class RochatusSystem {
             }
             return;
         }
+        if (this.activeBosses.size > 0) {
+            for (const player of world.getAllPlayers()) {
+                player.sendMessage("Rochatus is already active.");
+            }
+            return;
+        }
         const boss = portal.dimension.spawnEntity(EntityIds.rochatus, {
             x: portal.location.x,
             y: portal.location.y + 1,
@@ -90,7 +98,12 @@ class RochatusSystem {
         });
         this.activeBosses.set(boss.id, { boss, machine });
         arenaMessage(boss, "Rochatus");
-        boss.dimension.runCommandAsync(`playsound mob.wither.spawn @a ${boss.location.x} ${boss.location.y} ${boss.location.z}`).catch(() => { });
+        try {
+            boss.dimension.runCommand(`playsound mob.wither.spawn @a ${boss.location.x} ${boss.location.y} ${boss.location.z}`);
+        }
+        catch {
+            // Spawn sound is best-effort and should not cancel boss initialization.
+        }
     }
     createStates() {
         return {
@@ -109,7 +122,7 @@ class RochatusSystem {
                     ctx.target = nearestPlayer(ctx.boss, ctx.playersInArena);
                 },
                 onTick: (ctx, fsm) => {
-                    if (!ctx.target || !ctx.target.isValid())
+                    if (!ctx.target || !ctx.target.isValid)
                         return fsm.transition("IDLE");
                     if (ctx.attack === "roll")
                         this.updateRoll(ctx, fsm);
@@ -138,7 +151,12 @@ class RochatusSystem {
     updateRoll(ctx, fsm) {
         if (fsm.elapsedTicks === 1) {
             arenaMessage(ctx.boss, "Rochatus rolls");
-            ctx.boss.dimension.runCommandAsync(`particle minecraft:large_explosion ${ctx.boss.location.x} ${ctx.boss.location.y + 1} ${ctx.boss.location.z}`).catch(() => { });
+            try {
+                ctx.boss.dimension.runCommand(`particle minecraft:large_explosion ${ctx.boss.location.x} ${ctx.boss.location.y + 1} ${ctx.boss.location.z}`);
+            }
+            catch {
+                // Combat particles are visual-only.
+            }
         }
         if (!ctx.target)
             return;
@@ -160,19 +178,31 @@ class RochatusSystem {
         if (!ctx.target)
             return;
         if (fsm.elapsedTicks % 10 === 0 && fsm.elapsedTicks <= 70) {
-            const x = ctx.target.location.x + Math.floor(Math.random() * 7) - 3;
-            const y = ctx.target.location.y;
-            const z = ctx.target.location.z + Math.floor(Math.random() * 7) - 3;
-            ctx.boss.dimension.runCommandAsync(`particle minecraft:critical_hit_emitter ${x} ${y + 0.2} ${z}`).catch(() => { });
-            system.runTimeout(() => {
-                ctx.boss.dimension.runCommandAsync(`particle minecraft:large_explosion ${x} ${y + 0.2} ${z}`).catch(() => { });
-                for (const player of ctx.playersInArena) {
-                    if (horizontalDistance(player.location, { x, y, z }) <= 2) {
-                        player.applyDamage(DAMAGE.spikes, { cause: "projectile", damagingEntity: ctx.boss });
-                        player.addEffect("slowness", 60, { amplifier: 0 });
-                    }
+            for (let spikeIndex = 0; spikeIndex < SPIKES_PER_WAVE; spikeIndex += 1) {
+                const x = ctx.target.location.x + Math.floor(Math.random() * SPIKE_SPREAD_SIZE) - SPIKE_SPREAD_SIZE / 2;
+                const y = ctx.target.location.y;
+                const z = ctx.target.location.z + Math.floor(Math.random() * SPIKE_SPREAD_SIZE) - SPIKE_SPREAD_SIZE / 2;
+                try {
+                    ctx.boss.dimension.runCommand(`particle minecraft:critical_hit_emitter ${x} ${y + 0.2} ${z}`);
                 }
-            }, 18);
+                catch {
+                    // Spike warning particles are visual-only.
+                }
+                system.runTimeout(() => {
+                    try {
+                        ctx.boss.dimension.runCommand(`particle minecraft:large_explosion ${x} ${y + 0.2} ${z}`);
+                    }
+                    catch {
+                        // Spike impact particles are visual-only.
+                    }
+                    for (const player of ctx.playersInArena) {
+                        if (horizontalDistance(player.location, { x, y, z }) <= 2) {
+                            player.applyDamage(DAMAGE.spikes, { cause: "entityAttack", damagingEntity: ctx.boss });
+                            player.addEffect("slowness", 60, { amplifier: 0 });
+                        }
+                    }
+                }, 18);
+            }
         }
         if (fsm.elapsedTicks > 120)
             fsm.transition("COMBAT");
@@ -180,10 +210,20 @@ class RochatusSystem {
     updateQuake(ctx, fsm) {
         if (fsm.elapsedTicks === 1) {
             arenaMessage(ctx.boss, "Earthquake");
-            ctx.boss.dimension.runCommandAsync(`playsound random.explode @a ${ctx.boss.location.x} ${ctx.boss.location.y} ${ctx.boss.location.z}`).catch(() => { });
+            try {
+                ctx.boss.dimension.runCommand(`playsound random.explode @a ${ctx.boss.location.x} ${ctx.boss.location.y} ${ctx.boss.location.z}`);
+            }
+            catch {
+                // Combat sounds are best-effort.
+            }
         }
         if (fsm.elapsedTicks === 20) {
-            ctx.boss.dimension.runCommandAsync(`particle minecraft:huge_explosion_emitter ${ctx.boss.location.x} ${ctx.boss.location.y} ${ctx.boss.location.z}`).catch(() => { });
+            try {
+                ctx.boss.dimension.runCommand(`particle minecraft:huge_explosion_emitter ${ctx.boss.location.x} ${ctx.boss.location.y} ${ctx.boss.location.z}`);
+            }
+            catch {
+                // Combat particles are visual-only.
+            }
             damagePlayersNear(ctx.boss, 7, DAMAGE.quake, { type: "slowness", duration: 80, options: { amplifier: 1 } });
         }
         if (fsm.elapsedTicks > 75)
@@ -197,7 +237,7 @@ class RochatusSystem {
     }
     updateBosses() {
         for (const [id, entry] of this.activeBosses) {
-            if (!entry.boss.isValid()) {
+            if (!entry.boss.isValid) {
                 this.activeBosses.delete(id);
                 continue;
             }
@@ -214,7 +254,7 @@ class RochatusSystem {
         saveSystem.markBossKilled(BossIds.rochatus);
         this.activeBosses.get(deadEntity.id)?.machine.transition("DEAD");
         this.activeBosses.delete(deadEntity.id);
-        this.eventBus.publish("boss:killed", { bossId: BossIds.rochatus, players });
+        this.eventBus.publish("boss:killed", { bossId: BossIds.rochatus, players, location: deadEntity.location });
     }
 }
 export const rochatusSystem = new RochatusSystem();

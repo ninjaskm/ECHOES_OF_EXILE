@@ -40,15 +40,20 @@ describe("Project conventions", () => {
     assert.deepEqual(offenders, []);
   });
 
-  it("keeps Rochatus Azurion rewards in the loot table only", () => {
-    const lootTable = JSON.parse(read("BP/loot_tables/entities/rochatus.json"));
-    const lootEntry = lootTable.pools[0].entries[0];
+  it("keeps Rochatus Azurion rewards as a ground drop from the entity loot table", () => {
+    const entity = JSON.parse(read("BP/entities/rochatus.json"));
     const source = read("src/scripts/combat/PlayerStatsSystem.ts");
+    const builtSource = read("BP/scripts/combat/PlayerStatsSystem.js");
 
-    assert.equal(lootEntry.name, "exile:azurion");
-    assert.equal(lootEntry.functions.find((fn) => fn.function === "set_count")?.count, 6);
-    assert.doesNotMatch(source, /give\s+@s\s+exile:azurion/);
-    assert.doesNotMatch(source, /Azurion gained\./);
+    assert.deepEqual(entity["minecraft:entity"].components["minecraft:loot"], {
+      table: "loot_tables/entities/rochatus.json"
+    });
+    assert.doesNotMatch(source, /loot spawn .*loot_tables\/entities\/rochatus\.json/);
+    assert.doesNotMatch(builtSource, /loot spawn .*loot_tables\/entities\/rochatus\.json/);
+    assert.doesNotMatch(source, /give\s+@s\s+exile:azurion\s+6/);
+    assert.doesNotMatch(builtSource, /give\s+@s\s+exile:azurion\s+6/);
+    assert.doesNotMatch(source, /Azurion dropped\./);
+    assert.doesNotMatch(builtSource, /Azurion dropped\./);
   });
 
   it("uses required Rochatus boss FSM states", () => {
@@ -64,5 +69,35 @@ describe("Project conventions", () => {
     const updateBossesBody = source.match(/updateBosses\(\): void \{([\s\S]*?)\n  \}/)?.[1] ?? "";
 
     assert.doesNotMatch(updateBossesBody, /world\.getAllPlayers\(/);
+  });
+
+  it("does not use unsupported projectile damage cause in Rochatus attacks", () => {
+    const source = read("src/scripts/bosses/rochatus/RochatusSystem.ts");
+    const builtSource = read("BP/scripts/bosses/rochatus/RochatusSystem.js");
+
+    assert.doesNotMatch(source, /cause:\s*"projectile"/);
+    assert.doesNotMatch(builtSource, /cause:\s*"projectile"/);
+  });
+
+  it("uses the stable Entity.isValid property instead of removed isValid function calls", () => {
+    const source = read("src/scripts/bosses/rochatus/RochatusSystem.ts");
+    const builtSource = read("BP/scripts/bosses/rochatus/RochatusSystem.js");
+
+    for (const candidate of [source, builtSource]) {
+      assert.doesNotMatch(candidate, /\.isValid\(\)/);
+      assert.match(candidate, /!ctx\.target\.isValid/);
+      assert.match(candidate, /!entry\.boss\.isValid/);
+    }
+  });
+
+  it("does not declare @minecraft/server-ui unless runtime scripts import it", () => {
+    const manifest = JSON.parse(read("BP/manifest.json"));
+    const runtimeSources = walkFiles("src/scripts", ".ts").map(read).join("\n");
+    const importsServerUi = runtimeSources.includes("@minecraft/server-ui");
+    const declaresServerUi = (manifest.dependencies ?? []).some(
+      (dependency) => dependency.module_name === "@minecraft/server-ui"
+    );
+
+    assert.equal(declaresServerUi, importsServerUi);
   });
 });

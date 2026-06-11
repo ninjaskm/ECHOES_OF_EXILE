@@ -1,4 +1,4 @@
-import { world } from "@minecraft/server";
+import { system } from "@minecraft/server";
 import { eventBus } from "./core/EventBus.js";
 import { tickManager } from "./core/TickManager.js";
 import { saveSystem } from "./save/SaveSystem.js";
@@ -19,7 +19,14 @@ const systems = [
   devCommandSystem
 ];
 
-world.afterEvents.worldInitialize.subscribe((event) => {
+let initialized = false;
+
+function initializeMvpSystems(): void {
+  if (initialized) {
+    return;
+  }
+
+  initialized = true;
   saveSystem.registerWorldProperties();
 
   for (const system of systems) {
@@ -28,4 +35,8 @@ world.afterEvents.worldInitialize.subscribe((event) => {
 
   tickManager.start();
   console.warn("[Echoes of Exile] MVP systems initialized.");
+}
+
+system.run(() => {
+  initializeMvpSystems();
 });

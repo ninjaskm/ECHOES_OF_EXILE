@@ -1,13 +1,13 @@
 {
   "format_version": 2,
   "header": {
-    "name": "Echoes of Exile MVP RP v0.1.10",
-    "description": "Resource Pack MVP for Echoes of Exile. (v0.1.10)",
+    "name": "Echoes of Exile MVP RP v0.1.28",
+    "description": "Resource Pack MVP for Echoes of Exile. (v0.1.28)",
     "uuid": "9148bec9-e474-4996-aef6-7d3e03d96225",
     "version": [
       0,
       1,
-      10
+      28
     ],
     "min_engine_version": [
       1,
@@ -22,7 +22,7 @@
       "version": [
         0,
         1,
-        10
+        28
       ]
     }
   ]
