@@ -51,7 +51,7 @@ class DevCommandSystem {
     }
     showHelp(player) {
         player.sendMessage("Echoes of Exile MVP commands:");
-        player.sendMessage("/function exile_mvp_start - spawn portal, get shard and dash feather");
+        player.sendMessage("/function exile_mvp_start - spawn portal and get shard");
         player.sendMessage("/function exile_stats - show stats");
         player.sendMessage("/function exile_report - copy-friendly test report");
         player.sendMessage("/function exile_add_vit - spend 1 point in Vitality");

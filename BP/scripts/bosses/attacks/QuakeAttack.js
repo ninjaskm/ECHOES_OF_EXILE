@@ -50,6 +50,17 @@ export class QuakeAttack {
         catch {
             // Combat particles are visual-only.
         }
+        this.shakeCamera(context);
         context.damagePlayersNear(this.config.radius, this.config.damage, this.config.effect);
+    }
+    shakeCamera(context) {
+        if (!this.config.cameraShake)
+            return;
+        try {
+            context.boss.dimension.runCommand(`execute positioned ${context.boss.location.x} ${context.boss.location.y} ${context.boss.location.z} run camerashake add @a[r=${this.config.radius}] ${this.config.cameraShake.intensity} ${this.config.cameraShake.seconds} positional`);
+        }
+        catch {
+            // Camera shake is optional feedback; unsupported commands should not break the quake.
+        }
     }
 }

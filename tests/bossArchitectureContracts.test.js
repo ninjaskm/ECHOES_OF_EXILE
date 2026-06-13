@@ -43,7 +43,8 @@ describe("reusable boss architecture contracts", () => {
     const source = read("src/scripts/bosses/rochatus/RochatusSystem.ts");
 
     assert.match(source, /const BASE_HEALTH = 400;/);
-    assert.match(source, /const scaledHealth = Math\.floor\(BASE_HEALTH \* \(1 \+ playerCount \* 0\.25\)\);/);
+    assert.match(source, /const BOSS_BAR_MAX_HEALTH = 500;/);
+    assert.match(source, /const scaledHealth = Math\.min\(BOSS_BAR_MAX_HEALTH, Math\.floor\(BASE_HEALTH \* \(1 \+ playerCount \* 0\.25\)\)\);/);
     assert.match(source, /try \{\s*health\?\.setCurrentValue\(scaledHealth\);/s);
     assert.match(source, /const currentHealth = health \? Math\.max\(0, Math\.floor\(health\.currentValue\)\) : scaledHealth;/);
     assert.match(source, /boss\.nameTag = `Rochatus \[\$\{currentHealth\} HP\]`;/);
@@ -58,8 +59,26 @@ describe("reusable boss architecture contracts", () => {
     assert.match(source, /const dir = this\.lockedDirections\.get\(context\.boss\.id\);/);
     assert.match(source, /private moveBossForward\(context: BossAttackContext, dir: \{ x: number; z: number \}\): void/);
     assert.match(source, /context\.boss\.runCommand\(`tp @s \$\{nextLocation\.x\} \$\{nextLocation\.y\} \$\{nextLocation\.z\}`\);/);
-    assert.doesNotMatch(source, /applyKnockbackSafe/);
     assert.doesNotMatch(source, /onTick\(context: BossAttackContext\): void \{\s*if \(!context\.target\) return;\s*const dir = normalizeVector/s);
+  });
+
+  it("carries hit players with Rochatus during RollAttack instead of only dealing contact damage", () => {
+    const source = read("src/scripts/bosses/attacks/RollAttack.ts");
+    const rochatusSource = read("src/scripts/bosses/rochatus/RochatusSystem.ts");
+
+    assert.match(source, /import \{ applyKnockbackSafe, horizontalDistance, normalizeVector \}/);
+    assert.match(source, /carryStrength: number;/);
+    assert.match(source, /private readonly carriedPlayers = new Map<string, Set<string>>\(\);/);
+    assert.match(source, /this\.carriedPlayers\.set\(context\.boss\.id, new Set\(\)\);/);
+    assert.match(source, /this\.carryHitPlayers\(context, dir\);/);
+    assert.match(source, /private carryHitPlayers\(context: BossAttackContext, dir: \{ x: number; z: number \}\): void/);
+    assert.match(source, /horizontalDistance\(player\.location, context\.boss\.location\) <= this\.config\.contactRadius/);
+    assert.match(source, /applyKnockbackSafe\(player, dir\.x, dir\.z, this\.config\.carryStrength, 0\.05\);/);
+    assert.match(source, /if \(!alreadyHit\) \{/);
+    assert.match(source, /hitPlayers\.add\(player\.id\);/);
+    assert.match(source, /this\.carriedPlayers\.delete\(context\.boss\.id\);/);
+    assert.match(rochatusSource, /carryStrength: 1\.1,/);
+    assert.doesNotMatch(source, /context\.damagePlayersNear\(this\.config\.contactRadius, this\.config\.damage, this\.config\.effect\);/);
   });
 
   it("gates Rochatus specials with attack-specific intervals", () => {
@@ -114,5 +133,77 @@ describe("reusable boss architecture contracts", () => {
     assert.match(attackSource, /const landed = context\.boss\.location\.y <= state\.groundY \+ 0\.2;/);
     assert.match(attackSource, /return hadAirTime && \(landed \|\| timedOut\);/);
     assert.doesNotMatch(attackSource, /impactTick/);
+  });
+
+  it("renders Rochatus spikes as texture-only particles without physical blocks", () => {
+    const attackSource = read("src/scripts/bosses/attacks/SpikeWaveAttack.ts");
+    const rochatusSource = read("src/scripts/bosses/rochatus/RochatusSystem.ts");
+    const particleSource = read("RP/particles/rochatus_stalactite.json");
+
+    assert.match(attackSource, /fallParticleId\?: string;/);
+    assert.match(attackSource, /impactParticleId\?: string;/);
+    assert.match(attackSource, /fallHeight\?: number;/);
+    assert.match(attackSource, /fallStepTicks\?: number;/);
+    assert.match(attackSource, /private animateFallingParticle\(context: BossAttackContext, location:/);
+    assert.match(attackSource, /this\.animateFallingParticle\(context, \{ x, y, z \}\);/);
+    assert.match(attackSource, /this\.resolveSpikeImpact\(context, \{ x, y, z \}\);/);
+    assert.match(attackSource, /private resolveSpikeImpact\(context: BossAttackContext, location:/);
+    assert.match(attackSource, /spawnParticle\(this\.config\.fallParticleId/);
+    assert.match(attackSource, /spawnParticle\(this\.config\.impactParticleId/);
+    assert.doesNotMatch(attackSource, /impactBlockId/);
+    assert.doesNotMatch(attackSource, /impactBlockLifetimeTicks/);
+    assert.doesNotMatch(attackSource, /setblock/);
+    assert.doesNotMatch(attackSource, /\bfill\b/);
+    assert.doesNotMatch(rochatusSource, /impactBlockId/);
+    assert.doesNotMatch(rochatusSource, /impactBlockLifetimeTicks/);
+    assert.match(rochatusSource, /fallParticleId: "exile:rochatus_stalactite"/);
+    assert.match(rochatusSource, /impactParticleId: "exile:rochatus_stalactite"/);
+    assert.match(rochatusSource, /fallHeight: 7/);
+    assert.match(rochatusSource, /fallStepTicks: 3/);
+    assert.equal(JSON.parse(particleSource).particle_effect.description.identifier, "exile:rochatus_stalactite");
+  });
+
+  it("extends Rochatus earthquake and shakes nearby cameras on impact", () => {
+    const attackSource = read("src/scripts/bosses/attacks/QuakeAttack.ts");
+    const rochatusSource = read("src/scripts/bosses/rochatus/RochatusSystem.ts");
+
+    assert.match(rochatusSource, /totalTicks: 113,/);
+    assert.match(rochatusSource, /cameraShake: \{ intensity: 0\.45, seconds: 0\.7 \}/);
+    assert.match(attackSource, /cameraShake\?: \{ intensity: number; seconds: number \};/);
+    assert.match(attackSource, /private shakeCamera\(context: BossAttackContext\): void/);
+    assert.match(attackSource, /camerashake add @a\[r=\$\{this\.config\.radius\}\] \$\{this\.config\.cameraShake\.intensity\} \$\{this\.config\.cameraShake\.seconds\} positional/);
+    assert.match(attackSource, /this\.shakeCamera\(context\);/);
+  });
+
+  it("keeps Rochatus nameTag health as fallback while enabling native boss bar", () => {
+    const entity = JSON.parse(read("BP/entities/rochatus.json"));
+    const components = entity["minecraft:entity"].components;
+    const source = read("src/scripts/bosses/rochatus/RochatusSystem.ts");
+    const baseSource = read("src/scripts/bosses/base/BaseBossSystem.ts");
+
+    assert.deepEqual(components["minecraft:boss"], {
+      hud_range: 160,
+      name: "Rochatus",
+      should_darken_sky: false
+    });
+    assert.match(source, /boss\.nameTag = `Rochatus \[\$\{currentHealth\} HP\]`;/);
+    assert.match(baseSource, /entity\.nameTag = `\$\{this\.displayName\} \[\$\{Math\.max\(0, Math\.floor\(health\.currentValue\)\)\} HP\]`;/);
+  });
+
+  it("keeps targeting a wounded current player at or below thirty percent health", () => {
+    const baseSource = read("src/scripts/bosses/base/BaseBossSystem.ts");
+    const rochatusSource = read("src/scripts/bosses/rochatus/RochatusSystem.ts");
+
+    assert.match(baseSource, /const LOW_HEALTH_TARGET_PERCENT = 0\.3;/);
+    assert.match(baseSource, /protected selectBossTarget\(entity: Entity, currentTarget: Player \| undefined, players = this\.getPlayersInArena\(entity\)\): Player \| undefined/);
+    assert.match(baseSource, /this\.isPlayerAtOrBelowHealthPercent\(currentTarget, LOW_HEALTH_TARGET_PERCENT\)/);
+    assert.match(baseSource, /return currentTarget;/);
+    assert.match(baseSource, /private isPlayerAtOrBelowHealthPercent\(player: Player, percent: number\): boolean/);
+    assert.match(baseSource, /const health = player\.getComponent\("minecraft:health"\);/);
+    assert.match(baseSource, /health\.currentValue <= health\.effectiveMax \* percent/);
+    assert.match(baseSource, /return this\.nearestPlayer\(entity, players\);/);
+    assert.doesNotMatch(baseSource, /const LOW_HEALTH_TARGET_HP = 30;/);
+    assert.doesNotMatch(baseSource, /health\.currentValue <= 30/);
+    assert.match(rochatusSource, /this\.selectBossTarget\(ctx\.boss, ctx\.target, ctx\.playersInArena\)/);
   });
 });

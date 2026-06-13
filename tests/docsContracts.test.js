@@ -96,4 +96,22 @@ describe("documentation contracts", () => {
       assert.match(doc, /configura/i);
     }
   });
+
+  it("documents double-jump dash without feather fallback", () => {
+    const docs = [
+      "README.md",
+      "docs/TESTING.md",
+      "docs/MVP/README.md",
+      "docs/MVP/BEDROCK_TEST_CHECKLIST.md",
+      "docs/project-summary.md"
+    ];
+
+    for (const path of docs) {
+      const content = read(path);
+      assert.match(content, /double[- ]jump/i, `${path} should document double-jump dash`);
+      assert.doesNotMatch(content, /feather/i, `${path} should not mention feather fallback`);
+      assert.doesNotMatch(content, /\bpena\b/i, `${path} should not mention feather fallback`);
+      assert.doesNotMatch(content, /fallback dash/i, `${path} should not mention fallback dash`);
+    }
+  });
 });

@@ -26,12 +26,15 @@ describe("DashSystem Bedrock contracts", () => {
     assert.equal(serverDependency?.version, "2.7.0");
   });
 
-  it("keeps feather dash as a fallback input", () => {
+  it("does not keep feather dash as a fallback input", () => {
     const source = read("src/scripts/combat/DashSystem.ts");
+    const builtSource = read("BP/scripts/combat/DashSystem.js");
 
-    assert.match(source, /world\.afterEvents\.itemUse\.subscribe/);
-    assert.match(source, /if \(itemStack\.typeId !== "minecraft:feather"\) return;/);
-    assert.match(source, /this\.tryDash\(source as Player\);/);
+    for (const candidate of [source, builtSource]) {
+      assert.doesNotMatch(candidate, /world\.afterEvents\.itemUse\.subscribe/);
+      assert.doesNotMatch(candidate, /minecraft:feather/);
+      assert.doesNotMatch(candidate, /itemStack\.typeId/);
+    }
   });
 
   it("polls jump state frequently without relying on playerButtonInput events", () => {
@@ -160,13 +163,18 @@ describe("DashSystem Bedrock contracts", () => {
     ]);
   });
 
-  it("only triggers dash from feather use by players", () => {
+  it("only triggers dash from double-jump input", () => {
     const source = read("src/scripts/combat/DashSystem.ts");
+    const builtSource = read("BP/scripts/combat/DashSystem.js");
 
-    assert.match(source, /world\.afterEvents\.itemUse\.subscribe/);
-    assert.match(source, /if \(source\.typeId !== "minecraft:player"\) return;/);
-    assert.match(source, /if \(itemStack\.typeId !== "minecraft:feather"\) return;/);
-    assert.match(source, /this\.tryDash\(source as Player\);/);
+    assert.match(source, /private tryDoubleJumpDash\(player: Player\): void/);
+    assert.match(source, /this\.tryDash\(player\);/);
+
+    for (const candidate of [source, builtSource]) {
+      assert.doesNotMatch(candidate, /source\.typeId !== "minecraft:player"/);
+      assert.doesNotMatch(candidate, /itemStack\.typeId !== "minecraft:feather"/);
+      assert.doesNotMatch(candidate, /this\.tryDash\(source as Player\)/);
+    }
   });
 
   it("shows feedback without spending resources when dash is blocked", () => {

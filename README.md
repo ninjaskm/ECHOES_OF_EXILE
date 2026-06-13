@@ -79,8 +79,8 @@ Distribuídos em 5 tiers de dificuldade crescente, cada boss tem mecânicas úni
 
 ### MVP atual
 - Rochatus com ataques reutilizáveis: `RollAttack`, `SpikeWaveAttack` e `QuakeAttack`
-- Dash por double jump com fallback pela pena
-- HUD de dash separado do actionbar de personagem
+- Dash por double-jump
+- HUD com barras no actionbar e dash separado na sidebar
 - Drops atuais do Rochatus: 6x Azurion e 20x Oricalum via loot table nativa
 
 ---

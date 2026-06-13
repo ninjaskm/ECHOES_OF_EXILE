@@ -31,7 +31,7 @@ The current focus is a playable technical slice with:
 - Player stats storage for level, XP, mana, attributes, cooldowns and related progression data.
 - XP and level-up flow with attribute points.
 - Mana regeneration logic.
-- Double-jump dash rule with feather fallback for fast MVP validation.
+- Double-jump dash rule without item fallback.
 - Separate dash sidebar feedback for cooldown and double-jump tick diagnostics.
 
 ### Portal and world flow

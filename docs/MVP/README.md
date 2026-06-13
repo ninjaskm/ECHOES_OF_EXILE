@@ -11,8 +11,8 @@ This MVP is a first playable technical slice for the Bedrock addon.
 - EventBus, FSM and TickManager foundation.
 - Dynamic Properties save for player stats, gear, boss progress and generated portal structure locations.
 - Mana regeneration, XP, level cap 20 and attribute points.
-- Placeholder actionbar HUD for level, XP, mana and attribute points, plus a separate dash sidebar.
-- Dash using fast double-jump input with feather fallback: costs 20 mana and has a 2 second cooldown.
+- Actionbar HUD with HP, mana and XP bars plus numeric values, with a separate dash sidebar.
+- Dash using fast double-jump input: costs 20 mana and has a 2 second cooldown.
 - Tier 1 portal prototype using the desert portal structure and animated portal particle.
 - Portal Shard activation item.
 - Rochatus placeholder custom entity.
@@ -31,7 +31,7 @@ This MVP is a first playable technical slice for the Bedrock addon.
 ```
 
 4. Drop the `Portal Shard` into the portal particles.
-5. Fight Rochatus. Use double jump to dash; keep the feather as fallback if needed.
+5. Fight Rochatus. Use double-jump to dash.
 6. Check stats:
 
 ```mcfunction
@@ -54,6 +54,5 @@ This MVP is a first playable technical slice for the Bedrock addon.
 ## Current placeholders
 
 - Rochatus model and texture are placeholder geometry/assets.
-- HUD is actionbar text, not final Custom UI JSON.
+- HUD is improved actionbar/sidebar text, not final Custom UI JSON.
 - Portal uses a generated structure plus animated particle, not the final cinematic portal art pass.
-- Feather dash remains as a fallback while double-jump dash is validated in Bedrock.

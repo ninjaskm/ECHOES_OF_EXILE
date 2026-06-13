@@ -31,6 +31,13 @@ Formato: `[DATA] — Descrição` agrupado por versão/fase.
 
 ## Fase 1 — MVP
 
+### [2026-06-13] Targeting, HUD and dash MVP update
+
+- **O que foi feito:** Rochatus agora preserva o alvo atual quando ele esta com 30% ou menos da vida maxima, o HUD ganhou barras visuais de HP/mana/XP com valores ao lado, e o dash por pena foi removido para manter apenas double-jump
+- **Arquivos alterados:** `src/scripts/bosses/base/BaseBossSystem.ts`, `src/scripts/bosses/rochatus/RochatusSystem.ts`, `src/scripts/combat/DashSystem.ts`, `src/scripts/ui/HudSystem.ts`, `src/scripts/ui/DevCommandSystem.ts`, `src/types/minecraft-server.d.ts`, `BP/functions/exile_mvp_start.mcfunction`, `BP/scripts/**`, `README.md`, `docs/TESTING.md`, `docs/MVP/README.md`, `docs/MVP/BEDROCK_TEST_CHECKLIST.md`, `docs/project-summary.md`, `tests/bossArchitectureContracts.test.js`, `tests/dashSystemContracts.test.js`, `tests/docsContracts.test.js`, `tests/verticalSliceContracts.test.js`, `tests/hudContracts.test.js`
+- **Testes:** `npm.cmd run check` passou
+- **ObservaÃ§Ãµes:** assets de particula de stalactite foram preservados sem alteracao
+
 ### [2026-06-12] MVP portal, dash and Rochatus stabilization
 
 - **O que foi feito:** documentado o estado atual do MVP com portal por estrutura + partícula animada, reset de portais registrados via SaveSystem, dash por double jump com fallback pela pena, HUD separado de dash, Rochatus com ataques reutilizáveis e drops de 6x Azurion + 20x Oricalum

@@ -25,12 +25,6 @@ class DashSystem {
   initialize({ eventBus, tickManager }: SystemContext): void {
     this.eventBus = eventBus;
 
-    world.afterEvents.itemUse.subscribe(({ source, itemStack }) => {
-      if (source.typeId !== "minecraft:player") return;
-      if (itemStack.typeId !== "minecraft:feather") return;
-      this.tryDash(source as Player);
-    });
-
     tickManager.every(20, () => this.showInputDiagnostics());
     tickManager.every(JUMP_POLL_INTERVAL_TICKS, () => this.pollJumpDashInput());
     tickManager.every(JUMP_POLL_INTERVAL_TICKS, () => this.updateDashCooldownHud());
@@ -54,7 +48,7 @@ class DashSystem {
     }
   }
 
-  tryDoubleJumpDash(player: Player): void {
+  private tryDoubleJumpDash(player: Player): void {
     const now = system.currentTick;
     const lastJumpTick = this.lastJumpTicks.get(player.id);
     const jumpInput = resolveDoubleJumpDashInput({ currentTick: now, lastJumpTick });

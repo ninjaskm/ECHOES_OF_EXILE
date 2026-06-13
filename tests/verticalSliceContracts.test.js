@@ -23,7 +23,7 @@ describe("MVP vertical slice contracts", () => {
     assert.match(functionSource, /scriptevent exile:help/);
     assert.match(functionSource, /scriptevent exile:spawn_portal/);
     assert.match(functionSource, /give @s exile:portal_shard 1/);
-    assert.match(functionSource, /give @s minecraft:feather 1/);
+    assert.doesNotMatch(functionSource, /give @s minecraft:feather/);
   });
 
   it("loads the desert portal structure when the MVP portal spawns", () => {
@@ -233,8 +233,8 @@ describe("MVP vertical slice contracts", () => {
     assert.equal(components["minecraft:attack"].damage, 15);
     assert.equal(components["minecraft:behavior.melee_attack"].cooldown_time, 1.5);
     assert.equal(components["minecraft:behavior.melee_attack"].track_target, true);
-    assert.equal(components["minecraft:health"].value, 1200);
-    assert.equal(components["minecraft:health"].max, 1200);
+    assert.equal(components["minecraft:health"].value, 500);
+    assert.equal(components["minecraft:health"].max, 500);
     assert.deepEqual(components["minecraft:behavior.nearest_attackable_target"].entity_types[0].filters, {
       test: "is_family",
       subject: "other",

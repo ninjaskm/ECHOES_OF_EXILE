@@ -14,6 +14,7 @@ import type { BossAttack } from "../base/BossAttack.js";
 
 const BOSS_RADIUS = 160;
 const BASE_HEALTH = 400;
+const BOSS_BAR_MAX_HEALTH = 500;
 const SPIKES_PER_WAVE = 6;
 const SPIKE_SPREAD_SIZE = 12;
 const ROLL_ATTACK_INTERVAL_TICKS = 150;
@@ -44,6 +45,7 @@ class RochatusSystem extends BaseBossSystem<RochatusContext> {
       activeTicks: 18,
       totalTicks: 52,
       stepDistance: 0.72,
+      carryStrength: 1.1,
       message: "Rochatus rolls",
       effect: { type: "slowness", duration: 60, options: { amplifier: 0 } }
     }),
@@ -57,6 +59,10 @@ class RochatusSystem extends BaseBossSystem<RochatusContext> {
       impactRadius: 2,
       totalTicks: 120,
       message: "Spikes falling",
+      fallParticleId: "exile:rochatus_stalactite",
+      impactParticleId: "exile:rochatus_stalactite",
+      fallHeight: 7,
+      fallStepTicks: 3,
       effect: { type: "slowness", duration: 60, options: { amplifier: 0 } }
     }),
     new QuakeAttack({
@@ -65,9 +71,10 @@ class RochatusSystem extends BaseBossSystem<RochatusContext> {
       jumpHeight: 5,
       minAirTicks: 8,
       maxAirTicks: 45,
-      totalTicks: 75,
+      totalTicks: 113,
       message: "Earthquake",
       sound: "random.explode",
+      cameraShake: { intensity: 0.45, seconds: 0.7 },
       effect: { type: "slowness", duration: 80, options: { amplifier: 1 } }
     })
   ];
@@ -122,7 +129,7 @@ class RochatusSystem extends BaseBossSystem<RochatusContext> {
     });
 
     const playerCount = Math.max(1, this.getPlayersInArena(boss).length);
-    const scaledHealth = Math.floor(BASE_HEALTH * (1 + playerCount * 0.25));
+    const scaledHealth = Math.min(BOSS_BAR_MAX_HEALTH, Math.floor(BASE_HEALTH * (1 + playerCount * 0.25)));
     const health = boss.getComponent("minecraft:health");
     try {
       health?.setCurrentValue(scaledHealth);
@@ -166,13 +173,13 @@ class RochatusSystem extends BaseBossSystem<RochatusContext> {
     return {
       IDLE: {
         onTick: (ctx, fsm) => {
-          ctx.target = this.nearestPlayer(ctx.boss, ctx.playersInArena);
+          ctx.target = this.selectBossTarget(ctx.boss, ctx.target, ctx.playersInArena);
           if (ctx.target) fsm.transition("SPECIAL_WAIT");
         }
       },
       SPECIAL_WAIT: {
         onTick: (ctx, fsm) => {
-          ctx.target = this.nearestPlayer(ctx.boss, ctx.playersInArena);
+          ctx.target = this.selectBossTarget(ctx.boss, ctx.target, ctx.playersInArena);
           if (!ctx.target || !ctx.target.isValid) return fsm.transition("IDLE");
           if (fsm.elapsedTicks >= FIRST_SPECIAL_DELAY_TICKS) fsm.transition("COMBAT");
         }
@@ -180,7 +187,7 @@ class RochatusSystem extends BaseBossSystem<RochatusContext> {
       COMBAT: {
         onEnter: (ctx, fsm) => {
           ctx.attack = this.selectNextAttack(ctx);
-          ctx.target = this.nearestPlayer(ctx.boss, ctx.playersInArena);
+          ctx.target = this.selectBossTarget(ctx.boss, ctx.target, ctx.playersInArena);
           ctx.attack.onEnter?.(this.createAttackContext(ctx, fsm.elapsedTicks, () => fsm.transition("RECOVER")));
         },
         onTick: (ctx, fsm) => {
@@ -190,7 +197,7 @@ class RochatusSystem extends BaseBossSystem<RochatusContext> {
       },
       RECOVER: {
         onTick: (ctx, fsm) => {
-          ctx.target = this.nearestPlayer(ctx.boss, ctx.playersInArena);
+          ctx.target = this.selectBossTarget(ctx.boss, ctx.target, ctx.playersInArena);
           if (!ctx.target || !ctx.target.isValid) return fsm.transition("IDLE");
           if (fsm.elapsedTicks >= ATTACK_RECOVERY_TICKS) fsm.transition("COMBAT");
         }

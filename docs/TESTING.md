@@ -81,7 +81,7 @@ Use this checklist after `npm run check` passes:
 - Drop `Portal Shard` into the portal.
 - Confirm Rochatus spawns.
 - Use double jump and confirm dash consumes mana.
-- Use a feather and confirm fallback dash still works.
+- Confirm double-jump dash works without any item fallback.
 - Confirm the dash sidebar shows cooldown/tick state separately from the character actionbar.
 - Defeat Rochatus.
 - Confirm Azurion and Oricalum drop on the ground from the boss entity loot table.

@@ -13,13 +13,6 @@ class DashSystem {
     eventBus;
     initialize({ eventBus, tickManager }) {
         this.eventBus = eventBus;
-        world.afterEvents.itemUse.subscribe(({ source, itemStack }) => {
-            if (source.typeId !== "minecraft:player")
-                return;
-            if (itemStack.typeId !== "minecraft:feather")
-                return;
-            this.tryDash(source);
-        });
         tickManager.every(20, () => this.showInputDiagnostics());
         tickManager.every(JUMP_POLL_INTERVAL_TICKS, () => this.pollJumpDashInput());
         tickManager.every(JUMP_POLL_INTERVAL_TICKS, () => this.updateDashCooldownHud());

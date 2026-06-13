@@ -1,4 +1,4 @@
-import { normalizeVector } from "../../core/math.js";
+import { applyKnockbackSafe, horizontalDistance, normalizeVector } from "../../core/math.js";
 import type { BossAttack, BossAttackContext, BossAttackEffect } from "../base/BossAttack.js";
 
 export interface RollAttackConfig {
@@ -7,6 +7,7 @@ export interface RollAttackConfig {
   activeTicks: number;
   totalTicks: number;
   stepDistance: number;
+  carryStrength: number;
   message: string;
   effect?: BossAttackEffect;
 }
@@ -14,6 +15,7 @@ export interface RollAttackConfig {
 export class RollAttack implements BossAttack {
   readonly id = "roll";
   private readonly lockedDirections = new Map<string, { x: number; z: number }>();
+  private readonly carriedPlayers = new Map<string, Set<string>>();
 
   constructor(private readonly config: RollAttackConfig) {}
 
@@ -26,6 +28,7 @@ export class RollAttack implements BossAttack {
       });
       this.lockedDirections.set(context.boss.id, { x: dir.x, z: dir.z });
     }
+    this.carriedPlayers.set(context.boss.id, new Set());
 
     context.arenaMessage(this.config.message);
     try {
@@ -43,11 +46,12 @@ export class RollAttack implements BossAttack {
 
     if (context.elapsedTicks <= this.config.activeTicks) {
       this.moveBossForward(context, dir);
-      context.damagePlayersNear(this.config.contactRadius, this.config.damage, this.config.effect);
+      this.carryHitPlayers(context, dir);
     }
 
     if (context.elapsedTicks > this.config.totalTicks) {
       this.lockedDirections.delete(context.boss.id);
+      this.carriedPlayers.delete(context.boss.id);
       context.finish();
     }
   }
@@ -63,6 +67,24 @@ export class RollAttack implements BossAttack {
       context.boss.runCommand(`tp @s ${nextLocation.x} ${nextLocation.y} ${nextLocation.z}`);
     } catch {
       // Roll movement is best-effort; damage and attack state should continue.
+    }
+  }
+
+  private carryHitPlayers(context: BossAttackContext, dir: { x: number; z: number }): void {
+    const hitPlayers = this.carriedPlayers.get(context.boss.id) ?? new Set<string>();
+    this.carriedPlayers.set(context.boss.id, hitPlayers);
+
+    for (const player of context.playersInArena) {
+      if (!player.isValid) continue;
+      if (horizontalDistance(player.location, context.boss.location) <= this.config.contactRadius) {
+        const alreadyHit = hitPlayers.has(player.id);
+        applyKnockbackSafe(player, dir.x, dir.z, this.config.carryStrength, 0.05);
+        if (!alreadyHit) {
+          player.applyDamage(this.config.damage, { cause: "entityAttack", damagingEntity: context.boss });
+          if (this.config.effect) player.addEffect(this.config.effect.type, this.config.effect.duration, this.config.effect.options ?? {});
+          hitPlayers.add(player.id);
+        }
+      }
     }
   }
 }

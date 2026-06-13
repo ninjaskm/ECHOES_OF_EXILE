@@ -4,6 +4,8 @@ import { distance, horizontalDistance } from "../../core/math.js";
 import { StateMachine } from "../../core/FSM.js";
 import type { BossAttack, BossAttackContext, BossAttackEffect } from "./BossAttack.js";
 
+const LOW_HEALTH_TARGET_PERCENT = 0.3;
+
 export interface BaseBossContext extends BossAttackContext {
   attackIndex: number;
   attack: BossAttack;
@@ -34,6 +36,18 @@ export abstract class BaseBossSystem<TContext extends BaseBossContext = BaseBoss
     return players[0];
   }
 
+  protected selectBossTarget(entity: Entity, currentTarget: Player | undefined, players = this.getPlayersInArena(entity)): Player | undefined {
+    if (
+      currentTarget?.isValid &&
+      players.some((player) => player.id === currentTarget.id) &&
+      this.isPlayerAtOrBelowHealthPercent(currentTarget, LOW_HEALTH_TARGET_PERCENT)
+    ) {
+      return currentTarget;
+    }
+
+    return this.nearestPlayer(entity, players);
+  }
+
   protected arenaMessage(entity: Entity, message: string): void {
     for (const player of this.getPlayersInArena(entity)) {
       player.onScreenDisplay.setTitle(message);
@@ -51,7 +65,11 @@ export abstract class BaseBossSystem<TContext extends BaseBossContext = BaseBoss
   protected updateArenaPlayers(): void {
     for (const entry of this.activeBosses.values()) {
       entry.machine.context.playersInArena = this.getPlayersInArena(entry.boss);
-      entry.machine.context.target = this.nearestPlayer(entry.boss, entry.machine.context.playersInArena);
+      entry.machine.context.target = this.selectBossTarget(
+        entry.boss,
+        entry.machine.context.target,
+        entry.machine.context.playersInArena
+      );
     }
   }
 
@@ -71,5 +89,11 @@ export abstract class BaseBossSystem<TContext extends BaseBossContext = BaseBoss
         this.damagePlayersNear(context.boss, context.playersInArena, radius, amount, effect),
       finish
     };
+  }
+
+  private isPlayerAtOrBelowHealthPercent(player: Player, percent: number): boolean {
+    const health = player.getComponent("minecraft:health");
+    if (!health) return false;
+    return health.currentValue <= health.effectiveMax * percent;
   }
 }

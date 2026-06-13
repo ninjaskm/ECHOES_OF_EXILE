@@ -22,6 +22,7 @@ declare module "@minecraft/server" {
 
   export interface EntityHealthComponent {
     currentValue: number;
+    effectiveMax: number;
     setCurrentValue(value: number): void;
   }
 

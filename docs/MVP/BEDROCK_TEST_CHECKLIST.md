@@ -26,7 +26,7 @@ Run this after `npm.cmd run check` passes.
 
 - [ ] Importar/confirmar v0.1.28 in the world packs screen.
 - [ ] Run `/function exile_mvp_start`.
-- [ ] Expected: player receives a `Portal Shard` and a feather.
+- [ ] Expected: player receives a `Portal Shard`.
 - [ ] Expected: Tier 1 desert portal structure appears several blocks in front of the player.
 - [ ] Expected: animated portal particle is centered in the structure and has no visible sheet seam.
 - [ ] Drop the `Portal Shard` into the portal particles.
@@ -43,9 +43,7 @@ Run this after `npm.cmd run check` passes.
 - [ ] Expected: cooldown message appears.
 - [ ] Wait 2 seconds and dash again.
 - [ ] Expected: dash works again if enough mana exists.
-- [ ] Use the feather.
-- [ ] Expected: feather fallback still triggers dash.
-- [ ] Expected: actionbar shows level, XP, mana and available attribute points.
+- [ ] Expected: actionbar shows HP, mana and XP bars with numeric values beside them, plus level and available attribute points.
 - [ ] Expected: dash state stays in the separate dash sidebar, not mixed into mana/actionbar text.
 
 ## Rochatus fight
