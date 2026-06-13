@@ -17,7 +17,15 @@ function readJsonProperty(holder, key, fallbackFactory) {
     if (typeof raw !== "string" || raw.length === 0)
         return fallbackFactory();
     try {
-        return { ...fallbackFactory(), ...JSON.parse(raw) };
+        const fallback = fallbackFactory();
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(fallback)) {
+            return (Array.isArray(parsed) ? parsed : fallback);
+        }
+        if (parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)) {
+            return { ...fallback, ...parsed };
+        }
+        return fallback;
     }
     catch {
         return fallbackFactory();
@@ -78,6 +86,12 @@ class SaveSystem {
     }
     getPlayerGear(player) {
         return readJsonProperty(player, DynamicProperties.playerGear, createDefaultPlayerGear);
+    }
+    getPortalStructures() {
+        return readJsonProperty(world, DynamicProperties.portalStructures, () => []);
+    }
+    setPortalStructures(structures) {
+        writeJsonProperty(world, DynamicProperties.portalStructures, structures);
     }
     resetPlayer(player) {
         player.setDynamicProperty(DynamicProperties.playerStats, undefined);

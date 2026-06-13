@@ -20,9 +20,16 @@ function readJson(path) {
 describe("development pack linking", () => {
   it("exposes dev:link and dev scripts for the fast Bedrock workflow", () => {
     const packageJson = readJson("package.json");
+    const linkScript = readFileSync("scripts/link-dev-packs.js", "utf8");
 
     assert.equal(packageJson.scripts["dev:link"], "node scripts/link-dev-packs.js");
     assert.equal(packageJson.scripts.dev, "npm run build");
+    assert.match(linkScript, /"Roaming"/);
+    assert.match(linkScript, /"Minecraft Bedrock"/);
+    assert.match(linkScript, /"Users"/);
+    assert.match(linkScript, /"Shared"/);
+    assert.match(linkScript, /"games"/);
+    assert.match(linkScript, /"com\.mojang"/);
   });
 
   it("links BP and RP into Bedrock development pack directories", () => {

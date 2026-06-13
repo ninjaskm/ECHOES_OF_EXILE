@@ -117,6 +117,7 @@ declare module "@minecraft/server" {
       itemUse: EventSignal<ItemUseAfterEvent>;
     };
     getAllPlayers(): Player[];
+    getDimension(dimensionId: string): Dimension;
     getDynamicProperty(identifier: string): string | number | boolean | undefined;
     setDynamicProperty(identifier: string, value: string | number | boolean | undefined): void;
   }

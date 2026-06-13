@@ -30,6 +30,15 @@ export interface PlayerGear {
   activeEnchant: string | null;
 }
 
+export interface PersistedPortalStructure {
+  dimensionId: string;
+  location: {
+    x: number;
+    y: number;
+    z: number;
+  };
+}
+
 export interface Portal {
   id: number;
   tier: number;

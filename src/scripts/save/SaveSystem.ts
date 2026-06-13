@@ -2,7 +2,7 @@ import { world } from "@minecraft/server";
 import type { Player, World } from "@minecraft/server";
 import { DynamicProperties } from "../core/constants.js";
 import { createDefaultPlayerStats, getMaxMana } from "../combat/progression.js";
-import type { BossProgress, PlayerGear, PlayerStats, SystemContext } from "../types.js";
+import type { BossProgress, PersistedPortalStructure, PlayerGear, PlayerStats, SystemContext } from "../types.js";
 
 function createDefaultBossProgress() {
   return {
@@ -28,7 +28,18 @@ function readJsonProperty<TValue>(
   if (typeof raw !== "string" || raw.length === 0) return fallbackFactory();
 
   try {
-    return { ...fallbackFactory(), ...JSON.parse(raw) };
+    const fallback = fallbackFactory();
+    const parsed = JSON.parse(raw) as unknown;
+
+    if (Array.isArray(fallback)) {
+      return (Array.isArray(parsed) ? parsed : fallback) as TValue;
+    }
+
+    if (parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return { ...(fallback as object), ...parsed } as TValue;
+    }
+
+    return fallback;
   } catch {
     return fallbackFactory();
   }
@@ -101,6 +112,14 @@ class SaveSystem {
 
   getPlayerGear(player: Player): PlayerGear {
     return readJsonProperty(player, DynamicProperties.playerGear, createDefaultPlayerGear);
+  }
+
+  getPortalStructures(): PersistedPortalStructure[] {
+    return readJsonProperty(world, DynamicProperties.portalStructures, () => []);
+  }
+
+  setPortalStructures(structures: PersistedPortalStructure[]): void {
+    writeJsonProperty(world, DynamicProperties.portalStructures, structures);
   }
 
   resetPlayer(player: Player): void {

@@ -53,7 +53,7 @@ ECHOES_OF_EXILE/
 
 ## Inicialização (`main.js`)
 
-O entry point registra todos os sistemas e os inicializa em sequência no evento `worldInitialize`.
+O entry point registra todos os sistemas e os inicializa dentro de `system.run`, evitando APIs removidas de inicialização.
 
 **Ordem de inicialização — importa, não altere sem motivo:**
 
@@ -126,6 +126,7 @@ Persiste o estado do jogador via **Dynamic Properties** do Bedrock. Usa Dirty Fl
 | `modulo:player_stats` | JSON string | `{ level, xp, attribute_points, attributes: { vit, str, spd, dex, mana_regen } }` |
 | `modulo:boss_progress` | JSON string | `{ killed: string[] }` — IDs dos bosses derrotados |
 | `modulo:player_gear` | JSON string | `{ accessories: string[], active_enchant: string \| null }` |
+| `exile:portal_structures` | JSON string | `[{ dimensionId, location }]` - estruturas de portal geradas para o reset MVP |
 
 > ⚠️ **Nunca acesse Dynamic Properties diretamente.** Use sempre o SaveSystem. Mudanças no schema quebram saves existentes — exigem confirmação antes de qualquer alteração.
 
@@ -182,6 +183,28 @@ IDLE → COMBAT → STAGGER → DEAD
 
 Ao criar um novo boss, herde do skeleton base correspondente em `scripts/bosses/base/`.
 
+### Arquitetura reutilizavel de bosses
+
+Bosses devem ser implementados com heranca/reuso sempre que a logica puder servir para mais de um chefe. O objetivo e evitar que cada boss copie seu proprio ciclo de alvo, arena, vida, morte e ataques.
+
+`BaseBossSystem` deve concentrar o ciclo comum:
+
+- spawn/registro do boss ativo
+- alvo atual e jogadores na arena
+- atualizacao de vida/nameTag
+- transicoes comuns da FSM
+- estado morto e limpeza do boss
+
+`BossAttack` deve ser a interface/base para ataques reaproveitaveis. Ataques comuns devem ser implementados uma vez e configurados por boss:
+
+| Ataque base | Uso esperado |
+|---|---|
+| `RollAttack` | Avanco/rolamento em direcao ao alvo, com dano de contato |
+| `SpikeWaveAttack` | Ondas de areas marcadas no chao ao redor do alvo |
+| `QuakeAttack` | Explosao/terremoto em area ao redor do boss |
+
+Cada boss deve customizar esses ataques por configuracao: dano, cooldown, alcance, duracao, numero de ondas, particulas, sons e mensagens. Logica exclusiva pode ficar no modulo especifico do boss, mas primeiro deve ser avaliado se ela pertence a um ataque reutilizavel.
+
 ---
 
 ## Manifest
@@ -190,9 +213,9 @@ Ao criar um novo boss, herde do skeleton base correspondente em `scripts/bosses/
 |---|---|
 | BP UUID | `8646c5c7-8f0d-4b5b-87a9-d33543649fd2` |
 | Script entry | `scripts/main.js` |
-| `@minecraft/server` | `1.13.0` |
-| `@minecraft/server-ui` | `1.2.0` |
-| Versão atual | `[0, 1, 0]` |
+| `@minecraft/server` | `2.7.0` |
+| UI API | Nao usada no runtime atual |
+| Versao atual | `[0, 1, 28]` |
 | Bedrock mínimo | `1.21.0` |
 
 > ⚠️ Nunca altere os UUIDs do manifest. Isso desvincula o pack de mundos existentes.
@@ -206,9 +229,9 @@ Usadas apenas para **desenvolvimento e debug**. Não fazem parte da lógica de j
 | Função | Propósito |
 |---|---|
 | `exile_mvp_start` | Inicia o MVP com estado limpo |
-| `exile_reset_mvp` | Reseta progresso para testes |
+| `exile_reset_mvp` | Reseta progresso, bosses e portais MVP para testes |
 | `exile_spawn_rochatus` | Spawna Rochatus na posição do jogador |
-| `exile_clear_portals` | Remove todos os portais ativos |
+| `exile_clear_portals` | Remove portais ativos e estruturas de portal registradas pelo SaveSystem |
 | `exile_stats` | Exibe stats do jogador no chat |
 | `exile_add_str` | Adiciona pontos de Força (debug) |
 | `exile_add_vit` | Adiciona pontos de Vitalidade (debug) |
@@ -222,8 +245,17 @@ Usadas apenas para **desenvolvimento e debug**. Não fazem parte da lógica de j
 - **Ticks pesados:** use TickManager com intervalo adequado — nunca lógica a cada tick
 - **Save:** sempre via SaveSystem com Dirty Flag — nunca Dynamic Properties direto
 - **Novos sistemas:** adicionar ao array `systems` em `main.js` + implementar `initialize()`
-- **Novos bosses:** herdar skeleton base + FSM com 4 estados obrigatórios
+- **Novos bosses:** usar `BaseBossSystem`, ataques `BossAttack` reutilizaveis e FSM com 4 estados obrigatorios
 - **Partículas:** máximo de 20 simultâneas por boss
+
+## Compatibilidade Bedrock validada
+
+- Inicializacao: `system.run`.
+- Runtime scripts: `@minecraft/server` | `2.7.0`.
+- Validade de entidades: usar a propriedade `Entity.isValid`.
+- Particulas diretas: preferir `Dimension.spawnParticle` quando a API estiver disponivel.
+- Estruturas: `structure load` e `fill ... air replace` via `Dimension.runCommand` para spawn/reset do portal MVP.
+- Movimento por impulso: usar `applyKnockback` no formato estavel validado para a versao atual.
 
 ---
 

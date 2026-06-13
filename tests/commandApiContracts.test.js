@@ -49,6 +49,7 @@ describe("Bedrock command API compatibility", () => {
 
     for (const candidate of [source, builtSource]) {
       assert.doesNotMatch(candidate, /portal\.dimension\.runCommand\(`particle/);
+      assert.match(candidate, /portal\.dimension\.spawnParticle\(PORTAL_ANIMATED_PARTICLE_ID/);
       assert.match(candidate, /portal\.dimension\.spawnParticle\("minecraft:portal_particle"/);
       assert.match(candidate, /portal\.dimension\.spawnParticle\("minecraft:basic_flame_particle"/);
     }
@@ -57,12 +58,22 @@ describe("Bedrock command API compatibility", () => {
   it("uses synchronous runCommand for Rochatus sounds and particles", () => {
     const source = read("src/scripts/bosses/rochatus/RochatusSystem.ts");
     const builtSource = read("BP/scripts/bosses/rochatus/RochatusSystem.js");
+    const rollSource = read("src/scripts/bosses/attacks/RollAttack.ts");
+    const builtRollSource = read("BP/scripts/bosses/attacks/RollAttack.js");
+    const quakeSource = read("src/scripts/bosses/attacks/QuakeAttack.ts");
+    const builtQuakeSource = read("BP/scripts/bosses/attacks/QuakeAttack.js");
 
     for (const candidate of [source, builtSource]) {
       assert.match(candidate, /boss\.dimension\.runCommand\(`playsound mob\.wither\.spawn/);
-      assert.match(candidate, /ctx\.boss\.dimension\.runCommand\(`particle minecraft:large_explosion/);
-      assert.match(candidate, /ctx\.boss\.dimension\.runCommand\(`playsound random\.explode/);
-      assert.match(candidate, /ctx\.boss\.dimension\.runCommand\(`particle minecraft:huge_explosion_emitter/);
+    }
+
+    for (const candidate of [rollSource, builtRollSource]) {
+      assert.match(candidate, /context\.boss\.dimension\.runCommand\(\s*`particle minecraft:large_explosion/);
+    }
+
+    for (const candidate of [quakeSource, builtQuakeSource]) {
+      assert.match(candidate, /context\.boss\.dimension\.runCommand\(\s*`playsound \$\{this\.config\.sound\}/);
+      assert.match(candidate, /context\.boss\.dimension\.runCommand\(\s*`particle minecraft:huge_explosion_emitter/);
     }
   });
 });

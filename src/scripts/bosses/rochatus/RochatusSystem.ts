@@ -3,73 +3,78 @@ import type { Entity, EntityDieAfterEvent, Player } from "@minecraft/server";
 import { BossIds, EntityIds } from "../../core/constants.js";
 import { StateMachine } from "../../core/FSM.js";
 import type { StateDefinitions } from "../../core/FSM.js";
-import { applyKnockbackSafe, distance, horizontalDistance, normalizeVector } from "../../core/math.js";
 import { saveSystem } from "../../save/SaveSystem.js";
 import type { Portal, SystemContext } from "../../types.js";
+import { QuakeAttack } from "../attacks/QuakeAttack.js";
+import { RollAttack } from "../attacks/RollAttack.js";
+import { SpikeWaveAttack } from "../attacks/SpikeWaveAttack.js";
+import { BaseBossSystem } from "../base/BaseBossSystem.js";
+import type { BaseBossContext } from "../base/BaseBossSystem.js";
+import type { BossAttack } from "../base/BossAttack.js";
 
-const BOSS_RADIUS = 40;
-const BASE_HEALTH = 240;
+const BOSS_RADIUS = 160;
+const BASE_HEALTH = 400;
 const SPIKES_PER_WAVE = 6;
 const SPIKE_SPREAD_SIZE = 12;
+const ROLL_ATTACK_INTERVAL_TICKS = 150;
+const SPIKE_ATTACK_INTERVAL_TICKS = 150;
+const QUAKE_ATTACK_INTERVAL_TICKS = 150;
+const FIRST_SPECIAL_DELAY_TICKS = 100;
+const ATTACK_RECOVERY_TICKS = 24;
 const DAMAGE = {
   roll: 10,
   spikes: 7,
-  quake: 12
+  quake: 14
 };
 
-interface RochatusEffect {
-  type: string;
-  duration: number;
-  options?: {
-    amplifier?: number;
-    showParticles?: boolean;
-  };
-}
-
-interface RochatusContext {
-  boss: Entity;
-  target: Player | undefined;
-  attackIndex: number;
-  attack: "roll" | "spikes" | "quake";
-  playersInArena: Player[];
-}
-
-interface ActiveRochatus {
-  boss: Entity;
-  machine: StateMachine<RochatusContext>;
+interface RochatusContext extends BaseBossContext {
+  attack: BossAttack;
+  attackAvailableTicks: Record<string, number>;
 }
 
 type RochatusSpawnPortal = Pick<Portal, "dimension" | "location">;
 
-function getPlayersInArena(entity: Entity, radius = BOSS_RADIUS): Player[] {
-  return world
-    .getAllPlayers()
-    .filter((player) => player.dimension.id === entity.dimension.id)
-    .filter((player) => distance(player.location, entity.location) <= radius);
-}
-
-function nearestPlayer(entity: Entity, players = getPlayersInArena(entity)): Player | undefined {
-  players.sort((a, b) => distance(a.location, entity.location) - distance(b.location, entity.location));
-  return players[0];
-}
-
-function damagePlayersNear(entity: Entity, radius: number, amount: number, effect?: RochatusEffect): void {
-  for (const player of getPlayersInArena(entity, radius)) {
-    if (horizontalDistance(player.location, entity.location) > radius) continue;
-    player.applyDamage(amount, { cause: "entityAttack", damagingEntity: entity });
-    if (effect) player.addEffect(effect.type, effect.duration, effect.options ?? {});
-  }
-}
-
-function arenaMessage(entity: Entity, message: string): void {
-  for (const player of getPlayersInArena(entity)) {
-    player.onScreenDisplay.setTitle(message);
-  }
-}
-
-class RochatusSystem {
-  private readonly activeBosses = new Map<string, ActiveRochatus>();
+class RochatusSystem extends BaseBossSystem<RochatusContext> {
   private eventBus!: SystemContext["eventBus"];
+
+  private readonly attacks: BossAttack[] = [
+    new RollAttack({
+      damage: DAMAGE.roll,
+      contactRadius: 2.4,
+      activeTicks: 18,
+      totalTicks: 52,
+      stepDistance: 0.72,
+      message: "Rochatus rolls",
+      effect: { type: "slowness", duration: 60, options: { amplifier: 0 } }
+    }),
+    new SpikeWaveAttack({
+      damage: DAMAGE.spikes,
+      spikesPerWave: SPIKES_PER_WAVE,
+      spreadSize: SPIKE_SPREAD_SIZE,
+      waveIntervalTicks: 10,
+      waveUntilTick: 70,
+      impactDelayTicks: 18,
+      impactRadius: 2,
+      totalTicks: 120,
+      message: "Spikes falling",
+      effect: { type: "slowness", duration: 60, options: { amplifier: 0 } }
+    }),
+    new QuakeAttack({
+      damage: DAMAGE.quake,
+      radius: 9,
+      jumpHeight: 5,
+      minAirTicks: 8,
+      maxAirTicks: 45,
+      totalTicks: 75,
+      message: "Earthquake",
+      sound: "random.explode",
+      effect: { type: "slowness", duration: 80, options: { amplifier: 1 } }
+    })
+  ];
+
+  constructor() {
+    super("Rochatus", BOSS_RADIUS);
+  }
 
   initialize({ eventBus, tickManager }: SystemContext): void {
     this.eventBus = eventBus;
@@ -116,27 +121,40 @@ class RochatusSystem {
       z: portal.location.z
     });
 
-    const playerCount = Math.max(1, getPlayersInArena(boss).length);
+    const playerCount = Math.max(1, this.getPlayersInArena(boss).length);
     const scaledHealth = Math.floor(BASE_HEALTH * (1 + playerCount * 0.25));
-    boss.nameTag = `Rochatus [${scaledHealth} HP]`;
-    boss.getComponent("minecraft:health")?.setCurrentValue(scaledHealth);
+    const health = boss.getComponent("minecraft:health");
+    try {
+      health?.setCurrentValue(scaledHealth);
+    } catch (error) {
+      console.warn(`[Echoes of Exile] Failed to set Rochatus health to ${scaledHealth}: ${error}`);
+    }
+    const currentHealth = health ? Math.max(0, Math.floor(health.currentValue)) : scaledHealth;
+    boss.nameTag = `Rochatus [${currentHealth} HP]`;
 
-    const context: RochatusContext = {
+    let context: RochatusContext;
+    context = {
       boss,
       target: undefined,
-      attackIndex: 0,
-      attack: "roll",
-      playersInArena: getPlayersInArena(boss)
+      attackIndex: -1,
+      attack: this.attacks[0] ?? this.createFallbackAttack(),
+      attackAvailableTicks: {},
+      playersInArena: this.getPlayersInArena(boss),
+      elapsedTicks: 0,
+      arenaMessage: (message) => this.arenaMessage(boss, message),
+      damagePlayersNear: (radius, amount, effect) =>
+        this.damagePlayersNear(boss, context.playersInArena, radius, amount, effect),
+      finish: () => undefined
     };
 
-    const machine = new StateMachine<RochatusContext>({
+    const machine = new StateMachine({
       initialState: "IDLE",
       context,
       states: this.createStates()
     });
 
     this.activeBosses.set(boss.id, { boss, machine });
-    arenaMessage(boss, "Rochatus");
+    this.arenaMessage(boss, "Rochatus");
     try {
       boss.dimension.runCommand(`playsound mob.wither.spawn @a ${boss.location.x} ${boss.location.y} ${boss.location.z}`);
     } catch {
@@ -148,27 +166,38 @@ class RochatusSystem {
     return {
       IDLE: {
         onTick: (ctx, fsm) => {
-          ctx.target = nearestPlayer(ctx.boss, ctx.playersInArena);
-          if (ctx.target) fsm.transition("COMBAT");
+          ctx.target = this.nearestPlayer(ctx.boss, ctx.playersInArena);
+          if (ctx.target) fsm.transition("SPECIAL_WAIT");
+        }
+      },
+      SPECIAL_WAIT: {
+        onTick: (ctx, fsm) => {
+          ctx.target = this.nearestPlayer(ctx.boss, ctx.playersInArena);
+          if (!ctx.target || !ctx.target.isValid) return fsm.transition("IDLE");
+          if (fsm.elapsedTicks >= FIRST_SPECIAL_DELAY_TICKS) fsm.transition("COMBAT");
         }
       },
       COMBAT: {
         onEnter: (ctx, fsm) => {
-          const attacks = ["roll", "spikes", "quake"] as const;
-          ctx.attackIndex = (ctx.attackIndex + 1) % attacks.length;
-          ctx.attack = attacks[ctx.attackIndex] ?? "roll";
-          ctx.target = nearestPlayer(ctx.boss, ctx.playersInArena);
+          ctx.attack = this.selectNextAttack(ctx);
+          ctx.target = this.nearestPlayer(ctx.boss, ctx.playersInArena);
+          ctx.attack.onEnter?.(this.createAttackContext(ctx, fsm.elapsedTicks, () => fsm.transition("RECOVER")));
         },
         onTick: (ctx, fsm) => {
           if (!ctx.target || !ctx.target.isValid) return fsm.transition("IDLE");
-          if (ctx.attack === "roll") this.updateRoll(ctx, fsm);
-          if (ctx.attack === "spikes") this.updateSpikes(ctx, fsm);
-          if (ctx.attack === "quake") this.updateQuake(ctx, fsm);
+          ctx.attack.onTick(this.createAttackContext(ctx, fsm.elapsedTicks, () => fsm.transition("RECOVER")));
+        }
+      },
+      RECOVER: {
+        onTick: (ctx, fsm) => {
+          ctx.target = this.nearestPlayer(ctx.boss, ctx.playersInArena);
+          if (!ctx.target || !ctx.target.isValid) return fsm.transition("IDLE");
+          if (fsm.elapsedTicks >= ATTACK_RECOVERY_TICKS) fsm.transition("COMBAT");
         }
       },
       STAGGER: {
         onEnter: (ctx) => {
-          arenaMessage(ctx.boss, "Rochatus staggers");
+          this.arenaMessage(ctx.boss, "Rochatus staggers");
         },
         onTick: (_ctx, fsm) => {
           if (fsm.elapsedTicks > 20) fsm.transition("COMBAT");
@@ -176,97 +205,14 @@ class RochatusSystem {
       },
       DEAD: {
         onEnter: (ctx) => {
-          arenaMessage(ctx.boss, "Rochatus defeated");
+          this.arenaMessage(ctx.boss, "Rochatus defeated");
         }
       }
     };
   }
 
-  updateRoll(ctx: RochatusContext, fsm: StateMachine<RochatusContext>): void {
-    if (fsm.elapsedTicks === 1) {
-      arenaMessage(ctx.boss, "Rochatus rolls");
-      try {
-        ctx.boss.dimension.runCommand(`particle minecraft:large_explosion ${ctx.boss.location.x} ${ctx.boss.location.y + 1} ${ctx.boss.location.z}`);
-      } catch {
-        // Combat particles are visual-only.
-      }
-    }
-
-    if (!ctx.target) return;
-    const dir = normalizeVector({
-      x: ctx.target.location.x - ctx.boss.location.x,
-      y: 0,
-      z: ctx.target.location.z - ctx.boss.location.z
-    });
-
-    if (fsm.elapsedTicks <= 24) {
-      applyKnockbackSafe(ctx.boss, dir.x, dir.z, 0.55, 0);
-      damagePlayersNear(ctx.boss, 2.4, DAMAGE.roll, { type: "slowness", duration: 60, options: { amplifier: 0 } });
-    }
-
-    if (fsm.elapsedTicks > 68) fsm.transition("COMBAT");
-  }
-
-  updateSpikes(ctx: RochatusContext, fsm: StateMachine<RochatusContext>): void {
-    if (fsm.elapsedTicks === 1) arenaMessage(ctx.boss, "Spikes falling");
-    if (!ctx.target) return;
-
-    if (fsm.elapsedTicks % 10 === 0 && fsm.elapsedTicks <= 70) {
-      for (let spikeIndex = 0; spikeIndex < SPIKES_PER_WAVE; spikeIndex += 1) {
-        const x = ctx.target.location.x + Math.floor(Math.random() * SPIKE_SPREAD_SIZE) - SPIKE_SPREAD_SIZE / 2;
-        const y = ctx.target.location.y;
-        const z = ctx.target.location.z + Math.floor(Math.random() * SPIKE_SPREAD_SIZE) - SPIKE_SPREAD_SIZE / 2;
-        try {
-          ctx.boss.dimension.runCommand(`particle minecraft:critical_hit_emitter ${x} ${y + 0.2} ${z}`);
-        } catch {
-          // Spike warning particles are visual-only.
-        }
-        system.runTimeout(() => {
-          try {
-            ctx.boss.dimension.runCommand(`particle minecraft:large_explosion ${x} ${y + 0.2} ${z}`);
-          } catch {
-            // Spike impact particles are visual-only.
-          }
-          for (const player of ctx.playersInArena) {
-            if (horizontalDistance(player.location, { x, y, z }) <= 2) {
-              player.applyDamage(DAMAGE.spikes, { cause: "entityAttack", damagingEntity: ctx.boss });
-              player.addEffect("slowness", 60, { amplifier: 0 });
-            }
-          }
-        }, 18);
-      }
-    }
-
-    if (fsm.elapsedTicks > 120) fsm.transition("COMBAT");
-  }
-
-  updateQuake(ctx: RochatusContext, fsm: StateMachine<RochatusContext>): void {
-    if (fsm.elapsedTicks === 1) {
-      arenaMessage(ctx.boss, "Earthquake");
-      try {
-        ctx.boss.dimension.runCommand(`playsound random.explode @a ${ctx.boss.location.x} ${ctx.boss.location.y} ${ctx.boss.location.z}`);
-      } catch {
-        // Combat sounds are best-effort.
-      }
-    }
-
-    if (fsm.elapsedTicks === 20) {
-      try {
-        ctx.boss.dimension.runCommand(`particle minecraft:huge_explosion_emitter ${ctx.boss.location.x} ${ctx.boss.location.y} ${ctx.boss.location.z}`);
-      } catch {
-        // Combat particles are visual-only.
-      }
-      damagePlayersNear(ctx.boss, 7, DAMAGE.quake, { type: "slowness", duration: 80, options: { amplifier: 1 } });
-    }
-
-    if (fsm.elapsedTicks > 75) fsm.transition("COMBAT");
-  }
-
   refreshArenaPlayers(): void {
-    for (const entry of this.activeBosses.values()) {
-      entry.machine.context.playersInArena = getPlayersInArena(entry.boss);
-      entry.machine.context.target = nearestPlayer(entry.boss, entry.machine.context.playersInArena);
-    }
+    this.updateArenaPlayers();
   }
 
   updateBosses(): void {
@@ -277,19 +223,55 @@ class RochatusSystem {
       }
 
       entry.machine.update();
-      const health = entry.boss.getComponent("minecraft:health");
-      if (health) entry.boss.nameTag = `Rochatus [${Math.max(0, Math.floor(health.currentValue))} HP]`;
+      this.updateBossNameTag(entry.boss);
     }
   }
 
   handleEntityDie({ deadEntity }: EntityDieAfterEvent): void {
     if (deadEntity.typeId !== EntityIds.rochatus) return;
 
-    const players = getPlayersInArena(deadEntity, 80);
+    const players = this.getPlayersInArena(deadEntity, BOSS_RADIUS);
     saveSystem.markBossKilled(BossIds.rochatus);
     this.activeBosses.get(deadEntity.id)?.machine.transition("DEAD");
     this.activeBosses.delete(deadEntity.id);
     this.eventBus.publish("boss:killed", { bossId: BossIds.rochatus, players, location: deadEntity.location });
+  }
+
+  private createFallbackAttack(): BossAttack {
+    return {
+      id: "fallback",
+      onTick: (context) => context.finish()
+    };
+  }
+
+  private selectNextAttack(context: RochatusContext): BossAttack {
+    const now = system.currentTick;
+    const availableAttacks = this.attacks.filter((attack) => this.isAttackAvailable(context, attack, now));
+
+    if (availableAttacks.length > 0) {
+      const selected = availableAttacks[Math.floor(Math.random() * availableAttacks.length)];
+      if (!selected) return this.createFallbackAttack();
+      context.attackIndex = this.attacks.indexOf(selected);
+      this.markAttackUsed(context, selected, now);
+      return selected;
+    }
+
+    return this.createFallbackAttack();
+  }
+
+  private isAttackAvailable(context: RochatusContext, attack: BossAttack, currentTick: number): boolean {
+    return currentTick >= (context.attackAvailableTicks[attack.id] ?? 0);
+  }
+
+  private markAttackUsed(context: RochatusContext, attack: BossAttack, currentTick: number): void {
+    context.attackAvailableTicks[attack.id] = currentTick + this.getAttackIntervalTicks(attack);
+  }
+
+  private getAttackIntervalTicks(attack: BossAttack): number {
+    if (attack.id === "roll") return ROLL_ATTACK_INTERVAL_TICKS;
+    if (attack.id === "spikes") return SPIKE_ATTACK_INTERVAL_TICKS;
+    if (attack.id === "quake") return QUAKE_ATTACK_INTERVAL_TICKS;
+    return ATTACK_RECOVERY_TICKS;
   }
 }
 

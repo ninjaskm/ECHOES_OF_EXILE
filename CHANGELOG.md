@@ -1,5 +1,7 @@
 # CHANGELOG — Echoes of Exile
 
+**Versão atual:** v0.1.28
+
 Todas as mudanças relevantes do projeto são registradas aqui.
 Formato: `[DATA] — Descrição` agrupado por versão/fase.
 
@@ -28,6 +30,13 @@ Formato: `[DATA] — Descrição` agrupado por versão/fase.
 ---
 
 ## Fase 1 — MVP
+
+### [2026-06-12] Boss architecture convention documented
+
+- **O que foi feito:** registrada a regra de arquitetura reutilizável de bosses com `BaseBossSystem`, `BossAttack`, `RollAttack`, `SpikeWaveAttack` e `QuakeAttack`
+- **Arquivos alterados:** `AGENTS.md`, `docs/ARCHITECTURE.md`, `tests/docsContracts.test.js`
+- **Testes:** contrato de arquitetura de bosses validado em `tests/docsContracts.test.js`
+- **Observações:** bosses futuros devem configurar ataques reutilizáveis em vez de duplicar lógica específica dentro do sistema do boss
 
 ### [2026-06-10] Rochatus reward fixed
 

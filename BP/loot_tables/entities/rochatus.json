@@ -15,6 +15,22 @@
           ]
         }
       ]
+    },
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "item",
+          "name": "exile:oricalum",
+          "weight": 1,
+          "functions": [
+            {
+              "function": "set_count",
+              "count": 20
+            }
+          ]
+        }
+      ]
     }
   ]
 }

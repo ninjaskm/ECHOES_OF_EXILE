@@ -1,5 +1,7 @@
 # Testing
 
+**Current MVP version:** v0.1.28
+
 Echoes of Exile follows the repository rule from `AGENTS.md`: tests come before production code.
 
 ## Official commands
@@ -49,6 +51,10 @@ Automated tests cover logic that can run outside Minecraft Bedrock:
 - `StateMachine`
 - MVP progression rules
 - Dash rules
+- boss architecture contracts
+- Bedrock command/API compatibility contracts
+- portal structure, animation and reset contracts
+- Rochatus loot table reward contracts
 
 Gameplay that depends on Bedrock runtime must use a manual checklist until a dedicated integration harness exists.
 
@@ -65,17 +71,24 @@ Gameplay that depends on Bedrock runtime must use a manual checklist until a ded
 
 Use this checklist after `npm run check` passes:
 
+- Minecraft Bedrock in-game files are stored at `C:\Users\teteu\AppData\Roaming\Minecraft Bedrock\Users\Shared\games\com.mojang`.
+- Imported/downloaded packs live under `behavior_packs` and `resource_packs` inside that folder.
+- DEV linked packs live under `development_behavior_packs\EchoesOfExile_BP_DEV` and `development_resource_packs\EchoesOfExile_RP_DEV`.
 - Import/activate `BP` and `RP` in a Bedrock world.
 - Enable required Script API experiments for the installed Bedrock version.
 - Run `/function exile_mvp_start`.
-- Confirm a Tier 1 portal appears as particles.
+- Confirm a Tier 1 desert portal structure appears with the animated portal particle centered in it.
 - Drop `Portal Shard` into the portal.
 - Confirm Rochatus spawns.
-- Use a feather and confirm dash consumes mana.
+- Use double jump and confirm dash consumes mana.
+- Use a feather and confirm fallback dash still works.
+- Confirm the dash sidebar shows cooldown/tick state separately from the character actionbar.
 - Defeat Rochatus.
-- Confirm Azurion drops on the ground from the boss entity loot table.
+- Confirm Azurion and Oricalum drop on the ground from the boss entity loot table.
 - Run `/function exile_stats`.
 - Confirm Rochatus is listed as defeated.
+- Run `/function exile_reset_mvp`.
+- Confirm player stats, boss progress, portal particles and generated portal structure reset for the current saved portal flow.
 
 ## TypeScript direction
 

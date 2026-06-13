@@ -98,6 +98,16 @@ Antes de executar qualquer item abaixo, descreva o que pretende fazer e **aguard
 - Novos bosses herdam do skeleton base correspondente (`src/bosses/base/`)
 - FSM de boss: estados obrigatórios → `IDLE`, `COMBAT`, `STAGGER`, `DEAD`
 
+### Arquitetura reutilizavel de bosses
+
+- Bosses devem ser implementados pensando em heranca/reuso, nao como sistemas isolados com tudo duplicado.
+- `BaseBossSystem` deve concentrar o ciclo comum: spawn/registro do boss, alvo atual, jogadores na arena, atualizacao de vida, transicoes comuns e estado morto.
+- `BossAttack` deve ser a interface/base para ataques reaproveitaveis.
+- Ataques reutilizaveis padrao: `RollAttack`, `SpikeWaveAttack` e `QuakeAttack`.
+- Bosses especificos devem configurar ataques reutilizaveis com valores proprios, como dano, cooldown, alcance, duracao, particulas e mensagens.
+- Logica realmente exclusiva de um boss pode ficar no modulo especifico dele, mas primeiro verifique se ela pertence a uma base reutilizavel.
+- Ao adicionar novo boss ou novo ataque, escreva o teste de contrato antes para provar se a logica ficou reutilizavel ou se a excecao foi justificada.
+
 ---
 
 ## 6. Formato de resposta esperado

@@ -1,5 +1,7 @@
 # Echoes of Exile — project summary
 
+**Current MVP version:** v0.1.28
+
 ## Purpose
 
 This document is a compact technical summary of what has been built and stabilized so far in the Echoes of Exile MVP.
@@ -12,7 +14,7 @@ The current focus is a playable technical slice with:
 
 - player progression and stats;
 - mana and dash rules;
-- scripted portal flow;
+- scripted portal flow with generated structure reset;
 - Rochatus boss encounter;
 - boss reward handling;
 - pack versioning and test automation;
@@ -29,13 +31,16 @@ The current focus is a playable technical slice with:
 - Player stats storage for level, XP, mana, attributes, cooldowns and related progression data.
 - XP and level-up flow with attribute points.
 - Mana regeneration logic.
-- Dash rule using the feather item as a fast MVP input.
+- Double-jump dash rule with feather fallback for fast MVP validation.
+- Separate dash sidebar feedback for cooldown and double-jump tick diagnostics.
 
 ### Portal and world flow
 
-- Tier 1 portal prototype.
+- Tier 1 portal prototype using a generated desert portal structure.
+- Animated portal particle driven by a horizontal 16-frame particle sheet.
 - Portal Shard activation item.
 - Portal activation events and portal lifecycle wiring.
+- Portal structure locations persisted in `exile:portal_structures` so `/function exile_reset_mvp` can clear generated portal structures after reload.
 - Rift/portal prototype assets and script flow prepared for later upgrade into the final cinematic portal.
 
 ### Rochatus boss
@@ -48,15 +53,16 @@ The current focus is a playable technical slice with:
   - `STAGGER`
   - `DEAD`
 - Boss attacks and arena behavior:
-  - roll
-  - falling spikes
-  - earthquake
-- Arena player targeting and boss health scaling.
+  - roll attack that locks the initial target position;
+  - falling spike wave;
+  - earthquake jump followed by impact on landing.
+- Reusable boss attack architecture through `BaseBossSystem`, `BossAttack`, `RollAttack`, `SpikeWaveAttack` and `QuakeAttack`.
+- Arena player targeting, follow range tuning and boss health scaling.
 - Boss defeat tracking in save data.
 
 ### Reward and progression
 
-- Azurion reward defined as a native entity loot-table drop.
+- Azurion and Oricalum rewards defined as native entity loot-table drops.
 - Rochatus reward now uses `BP/entities/rochatus.json` plus `BP/loot_tables/entities/rochatus.json`.
 - Reward logic is no longer command-driven.
 - On boss death, the script grants XP and defeat messaging, while Bedrock handles the actual ground drop.
@@ -93,10 +99,14 @@ The automated test suite was expanded to check:
 
 ### 3. Corrected Rochatus reward semantics
 
-The reward path was corrected so Azurion is produced as a real world drop through the entity loot system.
+The reward path was corrected so Azurion and Oricalum are produced as real world drops through the entity loot system.
 This replaced earlier attempts that used script-driven item spawning and could behave inconsistently in the Bedrock runtime.
 
-### 4. Tightened docs and handoff material
+### 4. Stabilized portal reset and visual flow
+
+The portal MVP now uses a generated structure plus animated particle. Portal structure placements are saved through the SaveSystem and cleared by the MVP reset flow, so repeated Bedrock validation does not leave generated portal structures behind when the current saved portal flow is used.
+
+### 5. Tightened docs and handoff material
 
 Several docs were updated so the current implementation and validation flow are easier to follow:
 
@@ -118,7 +128,7 @@ Several docs were updated so the current implementation and validation flow are 
 - Rochatus death is detected in script.
 - Save data records the boss as defeated.
 - Players get XP and victory messaging from script.
-- The actual Azurion drop is handled by the entity loot table.
+- The actual Azurion and Oricalum drops are handled by the entity loot table.
 
 ### Current validation model
 
@@ -137,8 +147,9 @@ Several docs were updated so the current implementation and validation flow are 
 3. Trigger the portal.
 4. Spawn Rochatus.
 5. Defeat Rochatus.
-6. Confirm Azurion drops on the ground.
+6. Confirm Azurion and Oricalum drop on the ground.
 7. Confirm player progression and report commands still behave correctly.
+8. Run `/function exile_reset_mvp` and confirm the generated portal structure is cleared.
 
 ## Important implementation notes
 
@@ -146,6 +157,7 @@ Several docs were updated so the current implementation and validation flow are 
 - Reward logic should prefer native entity loot tables over scripted `give` or `loot spawn` commands.
 - If the reward amount changes, the loot table entry is the first place to update.
 - If future behavior becomes conditional, that logic should still stay close to the loot table path rather than being forced into inventory commands.
+- Portal reset only clears structures that were generated and registered by the current portal flow; avoid broad area cleanup unless explicitly approved.
 
 ## Use this summary for handoff
 

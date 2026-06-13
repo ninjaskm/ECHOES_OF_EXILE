@@ -5,8 +5,14 @@ import { saveSystem } from "../save/SaveSystem.js";
 const PORTAL_RADIUS = 2.5;
 const PORTAL_DRAW_RADIUS = 96;
 const PORTAL_ACTIVATION_RADIUS = 3;
+const PORTAL_STRUCTURE_ID = "exile:exile_portal_deserto";
+const PORTAL_ANIMATED_PARTICLE_ID = "exile:portal_animated";
+const PORTAL_STRUCTURE_OFFSET = { x: -5, y: 0, z: -6 };
+const PORTAL_STRUCTURE_SIZE = { x: 11, y: 12, z: 13 };
+const PORTAL_EFFECT_OFFSET = { x: 0, y: 3, z: 0 };
 class PortalSystem {
     portals = [];
+    portalStructures = [];
     nextPortalId = 1;
     eventBus;
     initialize({ eventBus, tickManager }) {
@@ -16,7 +22,7 @@ class PortalSystem {
             if (event.id === "exile:spawn_portal")
                 this.spawnPortalForPlayer(event.sourceEntity);
             if (event.id === "exile:clear_portals")
-                this.clearPortals();
+                this.clearPortals(event.sourceEntity);
         });
     }
     spawnPortalForPlayer(player) {
@@ -35,8 +41,28 @@ class PortalSystem {
             dimension: player.dimension,
             location
         };
+        const structureLocation = this.getPortalStructureLocation(location);
+        this.loadPortalStructure(player.dimension, structureLocation);
+        this.portalStructures.push({ dimension: player.dimension, location: structureLocation });
+        this.savePortalStructures();
         this.portals.push(portal);
         this.publishPortalSpawned(portal);
+    }
+    loadPortalStructure(dimension, location) {
+        try {
+            dimension.runCommand(`structure load ${PORTAL_STRUCTURE_ID} ${location.x} ${location.y} ${location.z}`);
+        }
+        catch {
+            // Portal structure is visual; particles and shard activation still define the gameplay portal.
+        }
+    }
+    getPortalStructureLocation(location) {
+        const structureLocation = {
+            x: Math.floor(location.x) + PORTAL_STRUCTURE_OFFSET.x,
+            y: Math.floor(location.y) + PORTAL_STRUCTURE_OFFSET.y,
+            z: Math.floor(location.z) + PORTAL_STRUCTURE_OFFSET.z
+        };
+        return structureLocation;
     }
     publishPortalSpawned(portal) {
         if (typeof this.eventBus.publish !== "function")
@@ -49,10 +75,84 @@ class PortalSystem {
             // Spawn notifications are optional; the portal is already registered.
         }
     }
-    clearPortals() {
+    clearPortals(sourcePlayer) {
+        const persistedStructures = this.loadPersistedPortalStructures();
+        const activePortalStructures = this.portals.map((portal) => ({
+            dimension: portal.dimension,
+            location: this.getPortalStructureLocation(portal.location)
+        }));
+        const structures = this.dedupePortalStructures([
+            ...this.portalStructures,
+            ...persistedStructures,
+            ...activePortalStructures
+        ]);
+        if (structures.length === 0) {
+            structures.push(...this.getLegacyPortalStructureFallback(sourcePlayer));
+        }
+        for (const structure of structures) {
+            this.clearPortalStructure(structure);
+        }
+        this.portalStructures.length = 0;
         this.portals = [];
+        saveSystem.setPortalStructures([]);
         for (const player of world.getAllPlayers()) {
             player.sendMessage("MVP portals cleared.");
+        }
+    }
+    loadPersistedPortalStructures() {
+        const structures = [];
+        for (const structure of saveSystem.getPortalStructures()) {
+            const dimension = this.getDimensionById(structure.dimensionId);
+            if (!dimension)
+                continue;
+            structures.push({ dimension, location: structure.location });
+        }
+        return structures;
+    }
+    savePortalStructures() {
+        const structures = this.dedupePortalStructures([...this.loadPersistedPortalStructures(), ...this.portalStructures]);
+        saveSystem.setPortalStructures(structures.map((structure) => ({
+            dimensionId: structure.dimension.id,
+            location: structure.location
+        })));
+    }
+    getDimensionById(dimensionId) {
+        try {
+            return world.getDimension(dimensionId);
+        }
+        catch {
+            return undefined;
+        }
+    }
+    dedupePortalStructures(structures) {
+        const keys = new Set();
+        const uniqueStructures = [];
+        for (const structure of structures) {
+            const key = `${structure.dimension.id}:${structure.location.x}:${structure.location.y}:${structure.location.z}`;
+            if (keys.has(key))
+                continue;
+            keys.add(key);
+            uniqueStructures.push(structure);
+        }
+        return uniqueStructures;
+    }
+    getLegacyPortalStructureFallback(player) {
+        if (!player || player.typeId !== "minecraft:player")
+            return [];
+        return [
+            {
+                dimension: player.dimension,
+                location: this.getPortalStructureLocation(player.location)
+            }
+        ];
+    }
+    clearPortalStructure({ dimension, location }) {
+        const { x, y, z } = location;
+        try {
+            dimension.runCommand(`fill ${x} ${y} ${z} ${x + PORTAL_STRUCTURE_SIZE.x - 1} ${y + PORTAL_STRUCTURE_SIZE.y - 1} ${z + PORTAL_STRUCTURE_SIZE.z - 1} air replace`);
+        }
+        catch {
+            // Reset should keep going even if a previously generated structure is already gone.
         }
     }
     updatePortals() {
@@ -62,14 +162,16 @@ class PortalSystem {
         }
     }
     drawPortal(portal) {
+        const effectLocation = this.getPortalEffectLocation(portal);
         const playersNearby = world
             .getAllPlayers()
             .filter((player) => player.dimension.id === portal.dimension.id)
-            .some((player) => distance(player.location, portal.location) <= PORTAL_DRAW_RADIUS);
+            .some((player) => distance(player.location, effectLocation) <= PORTAL_DRAW_RADIUS);
         if (!playersNearby)
             return;
-        const { x, y, z } = portal.location;
+        const { x, y, z } = effectLocation;
         try {
+            portal.dimension.spawnParticle(PORTAL_ANIMATED_PARTICLE_ID, { x, y: y + 2.1, z });
             portal.dimension.spawnParticle("minecraft:portal_particle", { x, y: y + 1.1, z });
             portal.dimension.spawnParticle("minecraft:basic_flame_particle", { x, y: y + 0.2, z });
         }
@@ -78,9 +180,10 @@ class PortalSystem {
         }
     }
     tryActivatePortal(portal) {
+        const effectLocation = this.getPortalEffectLocation(portal);
         const itemEntities = portal.dimension.getEntities({
             type: "minecraft:item",
-            location: portal.location,
+            location: effectLocation,
             maxDistance: PORTAL_ACTIVATION_RADIUS
         });
         for (const entity of itemEntities) {
@@ -98,6 +201,13 @@ class PortalSystem {
             this.eventBus.publish("portal:activated", { portal });
             return;
         }
+    }
+    getPortalEffectLocation(portal) {
+        return {
+            x: portal.location.x + PORTAL_EFFECT_OFFSET.x,
+            y: portal.location.y + PORTAL_EFFECT_OFFSET.y,
+            z: portal.location.z + PORTAL_EFFECT_OFFSET.z
+        };
     }
 }
 export const portalSystem = new PortalSystem();

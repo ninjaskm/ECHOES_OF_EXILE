@@ -1,5 +1,7 @@
 # ⚔️ Exiled World
 
+**MVP atual:** v0.1.28
+
 > *"Portais de origem desconhecida rasgaram a realidade. Reis caíram. Cidades arderam. Apenas alguém com coragem suficiente para enfrentar os 20 guardiões pode selar o caos de uma vez por todas."*
 
 **Exiled World** é um addon para **Minecraft Bedrock Edition** — um RPG de ação sombrio com 20 bosses únicos, progressão por tiers, sistema de atributos e atmosfera cinematográfica inspirada em **Elden Ring** e **Solo Leveling**.

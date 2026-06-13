@@ -16,10 +16,10 @@ function parseArgs(args) {
         ? join(
             homedir(),
             "AppData",
-            "Local",
-            "Packages",
-            "Microsoft.MinecraftUWP_8wekyb3d8bbwe",
-            "LocalState",
+            "Roaming",
+            "Minecraft Bedrock",
+            "Users",
+            "Shared",
             "games",
             "com.mojang"
           )
