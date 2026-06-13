@@ -69,12 +69,19 @@ Distribuídos em 5 tiers de dificuldade crescente, cada boss tem mecânicas úni
 
 ### Portais
 - 20 portais pré-determinados no mundo
-- Portal 2D que segue a visão do jogador
+- MVP atual usa estrutura de portal gerada + partícula animada centralizada
+- Reset MVP limpa estruturas de portal registradas pelo SaveSystem
 - Sleep mode quando o jogador se afasta
 - Tier superior só aparece após limpar o anterior
 
 ### Minérios
 10 minérios exclusivos com progressão por tier: Azurion → Oricalum → Solvaris → Vhaltrita → Asterita → Nythera → Krysalto → Drakyl → Nexílio → Zerônix
+
+### MVP atual
+- Rochatus com ataques reutilizáveis: `RollAttack`, `SpikeWaveAttack` e `QuakeAttack`
+- Dash por double jump com fallback pela pena
+- HUD de dash separado do actionbar de personagem
+- Drops atuais do Rochatus: 6x Azurion e 20x Oricalum via loot table nativa
 
 ---
 

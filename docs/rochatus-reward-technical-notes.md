@@ -2,13 +2,14 @@
 
 ## Goal
 
-Fix the Rochatus reward flow so Azurion drops as a real world item on the ground, instead of being forced into the player inventory or spawned by script commands.
+Fix the Rochatus reward flow so Azurion and Oricalum drop as real world items on the ground, instead of being forced into the player inventory or spawned by script commands.
 
 ## Problem observed
 
 The previous implementation passed automated tests but failed in Bedrock runtime. The symptoms were:
 
 - the Azurion reward did not always appear as a ground drop;
+- Oricalum needed to be added as a second material reward without moving rewards into script commands;
 - some attempts placed the item directly into inventory;
 - one scripted loot-spawn attempt did not behave reliably in-game.
 
@@ -20,7 +21,7 @@ The reward now uses the native entity loot system:
 
 1. `BP/entities/rochatus.json` includes a `minecraft:loot` component.
 2. That component points to `loot_tables/entities/rochatus.json`.
-3. `BP/loot_tables/entities/rochatus.json` defines the Azurion reward as `exile:azurion` with count `6`.
+3. `BP/loot_tables/entities/rochatus.json` defines Azurion as `exile:azurion` with count `6` and Oricalum as `exile:oricalum` with count `20`.
 4. `src/scripts/combat/PlayerStatsSystem.ts` no longer spawns loot with a command.
 5. The script only:
    - grants XP to participating players;
@@ -36,6 +37,7 @@ This makes the loot drop happen through the entity death pipeline that Bedrock h
 
 - `BP/loot_tables/entities/rochatus.json`
   - keeps the Azurion reward at 6
+  - keeps the Oricalum reward at 20
 
 - `src/scripts/combat/PlayerStatsSystem.ts`
   - removed scripted loot spawning
@@ -58,7 +60,7 @@ This makes the loot drop happen through the entity death pipeline that Bedrock h
 When Rochatus dies:
 
 - the entity loot table is used by Bedrock;
-- Azurion is dropped as loot in the world;
+- Azurion and Oricalum are dropped as loot in the world;
 - the player receives XP;
 - the player receives the boss defeat message.
 
@@ -71,14 +73,14 @@ Automated tests now verify:
 - `BP/entities/rochatus.json` contains the loot table component;
 - `src/scripts/combat/PlayerStatsSystem.ts` does not contain loot-spawn logic;
 - `BP/scripts/combat/PlayerStatsSystem.js` does not contain loot-spawn logic;
-- `BP/loot_tables/entities/rochatus.json` still grants 6 Azurion.
+- `BP/loot_tables/entities/rochatus.json` still grants 6 Azurion and 20 Oricalum.
 
 Manual Bedrock validation:
 
 1. Import the updated BP and RP.
 2. Spawn or summon Rochatus.
 3. Defeat Rochatus.
-4. Confirm Azurion appears as a ground drop.
+4. Confirm Azurion and Oricalum appear as ground drops.
 5. Confirm no direct inventory injection happens from the reward logic.
 
 ## Notes for future changes

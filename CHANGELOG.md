@@ -31,6 +31,13 @@ Formato: `[DATA] — Descrição` agrupado por versão/fase.
 
 ## Fase 1 — MVP
 
+### [2026-06-12] MVP portal, dash and Rochatus stabilization
+
+- **O que foi feito:** documentado o estado atual do MVP com portal por estrutura + partícula animada, reset de portais registrados via SaveSystem, dash por double jump com fallback pela pena, HUD separado de dash, Rochatus com ataques reutilizáveis e drops de 6x Azurion + 20x Oricalum
+- **Arquivos alterados:** `README.md`, `docs/ARCHITECTURE.md`, `docs/TESTING.md`, `docs/MVP/README.md`, `docs/MVP/BEDROCK_TEST_CHECKLIST.md`, `docs/project-summary.md`, `docs/rochatus-reward-technical-notes.md`, `relatorio_tecnico_rochatus_drop.docx`
+- **Testes:** `npm.cmd run check` passou após as mudanças de runtime anteriores; docs atualizados para refletir essa validação
+- **Observações:** o reset de portal deve limpar estruturas geradas e registradas pelo fluxo atual; não foi adotada limpeza ampla de área ao redor do jogador
+
 ### [2026-06-12] Boss architecture convention documented
 
 - **O que foi feito:** registrada a regra de arquitetura reutilizável de bosses com `BaseBossSystem`, `BossAttack`, `RollAttack`, `SpikeWaveAttack` e `QuakeAttack`
