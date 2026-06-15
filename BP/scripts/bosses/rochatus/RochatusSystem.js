@@ -1,5 +1,6 @@
 import { system, world } from "@minecraft/server";
 import { BossIds, EntityIds } from "../../core/constants.js";
+import { normalizeVector } from "../../core/math.js";
 import { StateMachine } from "../../core/FSM.js";
 import { saveSystem } from "../../save/SaveSystem.js";
 import { QuakeAttack } from "../attacks/QuakeAttack.js";
@@ -10,16 +11,23 @@ const BOSS_RADIUS = 160;
 const BASE_HEALTH = 400;
 const BOSS_BAR_MAX_HEALTH = 500;
 const SPIKES_PER_WAVE = 6;
-const SPIKE_SPREAD_SIZE = 12;
+const SPIKE_SPREAD_SIZE = 15;
 const ROLL_ATTACK_INTERVAL_TICKS = 150;
 const SPIKE_ATTACK_INTERVAL_TICKS = 150;
 const QUAKE_ATTACK_INTERVAL_TICKS = 150;
 const FIRST_SPECIAL_DELAY_TICKS = 100;
 const ATTACK_RECOVERY_TICKS = 24;
+const SPECIAL_TELEGRAPH_TICKS = 20;
+const TELEGRAPH_REFRESH_TICKS = 5;
+const COMMAND_SPAWN_FORWARD_DISTANCE = 6;
+const TELEGRAPH_FORWARD_DISTANCE = 2.4;
+const RUN_TELEGRAPH_PARTICLE = "exile:warning_run_sheet";
+const SPIKE_TELEGRAPH_PARTICLE = "exile:warning_sheet_spikes";
+const QUAKE_TELEGRAPH_PARTICLE = "exile:quake_wave_red";
 const DAMAGE = {
-    roll: 10,
+    roll: 20,
     spikes: 7,
-    quake: 14
+    quake: 20
 };
 class RochatusSystem extends BaseBossSystem {
     eventBus;
@@ -29,15 +37,17 @@ class RochatusSystem extends BaseBossSystem {
             contactRadius: 2.4,
             activeTicks: 18,
             totalTicks: 52,
-            stepDistance: 0.72,
+            stepDistance: 0.432,
             carryStrength: 1.1,
+            verticalFollowRange: 2,
             message: "Rochatus rolls",
-            effect: { type: "slowness", duration: 60, options: { amplifier: 0 } }
+            effect: { type: "slowness", duration: 120, options: { amplifier: 1 } }
         }),
         new SpikeWaveAttack({
             damage: DAMAGE.spikes,
             spikesPerWave: SPIKES_PER_WAVE,
             spreadSize: SPIKE_SPREAD_SIZE,
+            targetLockRange: 15,
             waveIntervalTicks: 10,
             waveUntilTick: 70,
             impactDelayTicks: 18,
@@ -46,21 +56,21 @@ class RochatusSystem extends BaseBossSystem {
             message: "Spikes falling",
             fallParticleId: "exile:rochatus_stalactite",
             impactParticleId: "exile:rochatus_stalactite",
-            fallHeight: 7,
-            fallStepTicks: 3,
+            fallHeight: 9,
+            fallStepTicks: 4,
             effect: { type: "slowness", duration: 60, options: { amplifier: 0 } }
         }),
         new QuakeAttack({
             damage: DAMAGE.quake,
-            radius: 9,
-            jumpHeight: 5,
+            radius: 7.5,
+            jumpHeight: 7,
             minAirTicks: 8,
             maxAirTicks: 45,
             totalTicks: 113,
             message: "Earthquake",
             sound: "random.explode",
             cameraShake: { intensity: 0.45, seconds: 0.7 },
-            effect: { type: "slowness", duration: 80, options: { amplifier: 1 } }
+            effect: { type: "slowness", duration: 80, options: { amplifier: 2 } }
         })
     ];
     constructor() {
@@ -80,12 +90,13 @@ class RochatusSystem extends BaseBossSystem {
     spawnRochatusForPlayer(player) {
         if (!player || player.typeId !== "minecraft:player")
             return;
+        const direction = normalizeVector(player.getViewDirection());
         this.spawnRochatus({
             dimension: player.dimension,
             location: {
-                x: player.location.x + 4,
+                x: player.location.x + direction.x * COMMAND_SPAWN_FORWARD_DISTANCE,
                 y: player.location.y,
-                z: player.location.z + 4
+                z: player.location.z + direction.z * COMMAND_SPAWN_FORWARD_DISTANCE
             }
         });
     }
@@ -160,12 +171,27 @@ class RochatusSystem extends BaseBossSystem {
                     if (!ctx.target || !ctx.target.isValid)
                         return fsm.transition("IDLE");
                     if (fsm.elapsedTicks >= FIRST_SPECIAL_DELAY_TICKS)
+                        fsm.transition("TELEGRAPH");
+                }
+            },
+            TELEGRAPH: {
+                onEnter: (ctx) => {
+                    ctx.attack = this.selectNextAttack(ctx);
+                    ctx.target = this.selectBossTarget(ctx.boss, ctx.target, ctx.playersInArena);
+                    this.renderAttackTelegraph(ctx);
+                },
+                onTick: (ctx, fsm) => {
+                    ctx.target = this.selectBossTarget(ctx.boss, ctx.target, ctx.playersInArena);
+                    if (!ctx.target || !ctx.target.isValid)
+                        return fsm.transition("IDLE");
+                    if (fsm.elapsedTicks % TELEGRAPH_REFRESH_TICKS === 0)
+                        this.renderAttackTelegraph(ctx);
+                    if (fsm.elapsedTicks >= SPECIAL_TELEGRAPH_TICKS)
                         fsm.transition("COMBAT");
                 }
             },
             COMBAT: {
                 onEnter: (ctx, fsm) => {
-                    ctx.attack = this.selectNextAttack(ctx);
                     ctx.target = this.selectBossTarget(ctx.boss, ctx.target, ctx.playersInArena);
                     ctx.attack.onEnter?.(this.createAttackContext(ctx, fsm.elapsedTicks, () => fsm.transition("RECOVER")));
                 },
@@ -181,7 +207,7 @@ class RochatusSystem extends BaseBossSystem {
                     if (!ctx.target || !ctx.target.isValid)
                         return fsm.transition("IDLE");
                     if (fsm.elapsedTicks >= ATTACK_RECOVERY_TICKS)
-                        fsm.transition("COMBAT");
+                        fsm.transition("TELEGRAPH");
                 }
             },
             STAGGER: {
@@ -246,6 +272,49 @@ class RochatusSystem extends BaseBossSystem {
     }
     markAttackUsed(context, attack, currentTick) {
         context.attackAvailableTicks[attack.id] = currentTick + this.getAttackIntervalTicks(attack);
+    }
+    renderAttackTelegraph(context) {
+        if (context.attack.id === "roll")
+            return this.renderSideArrowTelegraph(context.boss, this.resolveTelegraphForward(context));
+        if (context.attack.id === "spikes")
+            return this.renderSpikeWarningTelegraph(context.boss, this.resolveTelegraphForward(context));
+        if (context.attack.id === "quake")
+            return this.renderQuakeWarningTelegraph(context.boss, this.resolveTelegraphForward(context));
+    }
+    resolveTelegraphForward(context) {
+        if (!context.target)
+            return { x: 0, z: 1 };
+        const direction = normalizeVector({
+            x: context.target.location.x - context.boss.location.x,
+            y: 0,
+            z: context.target.location.z - context.boss.location.z
+        });
+        return { x: direction.x, z: direction.z };
+    }
+    renderSideArrowTelegraph(boss, forward) {
+        this.spawnTelegraphShape(boss, RUN_TELEGRAPH_PARTICLE, forward, [
+            { x: 0, y: 1.5, z: 0 }
+        ]);
+    }
+    renderSpikeWarningTelegraph(boss, forward) {
+        this.spawnTelegraphShape(boss, SPIKE_TELEGRAPH_PARTICLE, forward, [
+            { x: 0, y: 1.4, z: 0 }
+        ]);
+    }
+    renderQuakeWarningTelegraph(boss, forward) {
+        this.spawnTelegraphShape(boss, QUAKE_TELEGRAPH_PARTICLE, forward, [
+            { x: 0, y: 1.3, z: 0 }
+        ]);
+    }
+    spawnTelegraphShape(boss, particleId, forward, offsets) {
+        for (const offset of offsets) {
+            try {
+                boss.dimension.runCommand(`particle ${particleId} ${boss.location.x + forward.x * TELEGRAPH_FORWARD_DISTANCE + offset.x} ${boss.location.y + offset.y} ${boss.location.z + forward.z * TELEGRAPH_FORWARD_DISTANCE + offset.z}`);
+            }
+            catch {
+                // Telegraph particles are visual-only.
+            }
+        }
     }
     getAttackIntervalTicks(attack) {
         if (attack.id === "roll")

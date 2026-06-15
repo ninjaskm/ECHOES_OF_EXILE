@@ -37,7 +37,7 @@ Run this after `npm.cmd run check` passes.
 
 - [ ] Press jump twice quickly.
 - [ ] Expected: player dashes forward from double-jump input.
-- [ ] Expected: mana decreases by 20.
+- [ ] Expected: mana decreases by 50.
 - [ ] Expected: dash sidebar shows cooldown counting down to `0`.
 - [ ] Try to dash again immediately.
 - [ ] Expected: cooldown message appears.

@@ -3,34 +3,63 @@ import { horizontalDistance } from "../../core/math.js";
 export class SpikeWaveAttack {
     config;
     id = "spikes";
+    lockedTargetLocations = new Map();
     constructor(config) {
         this.config = config;
     }
     onEnter(context) {
+        this.lockedTargetLocations.delete(context.boss.id);
         context.arenaMessage(this.config.message);
     }
     onTick(context) {
-        if (!context.target)
+        if (context.elapsedTicks > this.config.totalTicks) {
+            this.lockedTargetLocations.delete(context.boss.id);
+            context.finish();
             return;
+        }
         if (context.elapsedTicks % this.config.waveIntervalTicks === 0 && context.elapsedTicks <= this.config.waveUntilTick) {
+            const targetLocation = this.resolveTargetLocation(context);
+            if (!targetLocation)
+                return;
             for (let spikeIndex = 0; spikeIndex < this.config.spikesPerWave; spikeIndex += 1) {
-                const x = context.target.location.x + Math.floor(Math.random() * this.config.spreadSize) - this.config.spreadSize / 2;
-                const y = context.target.location.y;
-                const z = context.target.location.z + Math.floor(Math.random() * this.config.spreadSize) - this.config.spreadSize / 2;
-                try {
-                    context.boss.dimension.runCommand(`particle minecraft:critical_hit_emitter ${x} ${y + 0.2} ${z}`);
-                }
-                catch {
-                    // Spike warning particles are visual-only.
-                }
+                const x = targetLocation.x + Math.floor(Math.random() * this.config.spreadSize) - this.config.spreadSize / 2;
+                const y = targetLocation.y;
+                const z = targetLocation.z + Math.floor(Math.random() * this.config.spreadSize) - this.config.spreadSize / 2;
+                this.spawnWarningParticles(context, { x, y, z });
                 this.animateFallingParticle(context, { x, y, z });
                 system.runTimeout(() => {
                     this.resolveSpikeImpact(context, { x, y, z });
                 }, this.config.impactDelayTicks);
             }
         }
-        if (context.elapsedTicks > this.config.totalTicks)
-            context.finish();
+    }
+    resolveTargetLocation(context) {
+        if (context.target &&
+            horizontalDistance(context.target.location, context.boss.location) <= this.config.targetLockRange) {
+            this.lockedTargetLocations.set(context.boss.id, {
+                x: context.target.location.x,
+                y: context.target.location.y,
+                z: context.target.location.z
+            });
+        }
+        return this.lockedTargetLocations.get(context.boss.id);
+    }
+    spawnWarningParticles(context, location) {
+        const warningOffsets = [
+            { x: 0, z: 0 },
+            { x: 0.35, z: 0 },
+            { x: -0.35, z: 0 },
+            { x: 0, z: 0.35 },
+            { x: 0, z: -0.35 }
+        ];
+        for (const offset of warningOffsets) {
+            try {
+                context.boss.dimension.runCommand(`particle minecraft:critical_hit_emitter ${location.x + offset.x} ${location.y + 0.12} ${location.z + offset.z}`);
+            }
+            catch {
+                // Spike warning particles are visual-only.
+            }
+        }
     }
     animateFallingParticle(context, location) {
         if (!this.config.fallParticleId)

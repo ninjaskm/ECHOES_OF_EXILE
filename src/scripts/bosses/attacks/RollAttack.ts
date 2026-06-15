@@ -8,6 +8,7 @@ export interface RollAttackConfig {
   totalTicks: number;
   stepDistance: number;
   carryStrength: number;
+  verticalFollowRange: number;
   message: string;
   effect?: BossAttackEffect;
 }
@@ -57,9 +58,10 @@ export class RollAttack implements BossAttack {
   }
 
   private moveBossForward(context: BossAttackContext, dir: { x: number; z: number }): void {
+    const nextY = this.resolveVerticalStep(context);
     const nextLocation = {
       x: context.boss.location.x + dir.x * this.config.stepDistance,
-      y: context.boss.location.y,
+      y: nextY,
       z: context.boss.location.z + dir.z * this.config.stepDistance
     };
 
@@ -68,6 +70,14 @@ export class RollAttack implements BossAttack {
     } catch {
       // Roll movement is best-effort; damage and attack state should continue.
     }
+  }
+
+  private resolveVerticalStep(context: BossAttackContext): number {
+    if (!context.target) return context.boss.location.y;
+
+    const deltaY = context.target.location.y - context.boss.location.y;
+    if (Math.abs(deltaY) <= this.config.verticalFollowRange) return context.target.location.y;
+    return context.boss.location.y;
   }
 
   private carryHitPlayers(context: BossAttackContext, dir: { x: number; z: number }): void {

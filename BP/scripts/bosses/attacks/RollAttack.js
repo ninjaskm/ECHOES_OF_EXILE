@@ -40,9 +40,10 @@ export class RollAttack {
         }
     }
     moveBossForward(context, dir) {
+        const nextY = this.resolveVerticalStep(context);
         const nextLocation = {
             x: context.boss.location.x + dir.x * this.config.stepDistance,
-            y: context.boss.location.y,
+            y: nextY,
             z: context.boss.location.z + dir.z * this.config.stepDistance
         };
         try {
@@ -51,6 +52,14 @@ export class RollAttack {
         catch {
             // Roll movement is best-effort; damage and attack state should continue.
         }
+    }
+    resolveVerticalStep(context) {
+        if (!context.target)
+            return context.boss.location.y;
+        const deltaY = context.target.location.y - context.boss.location.y;
+        if (Math.abs(deltaY) <= this.config.verticalFollowRange)
+            return context.target.location.y;
+        return context.boss.location.y;
     }
     carryHitPlayers(context, dir) {
         const hitPlayers = this.carriedPlayers.get(context.boss.id) ?? new Set();

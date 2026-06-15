@@ -16,10 +16,11 @@ describe("HUD contracts", () => {
     assert.match(source, /const filled = Math\.round\(percent \* segments\);/);
     assert.match(source, /function formatPercent\(current: number, max: number\): string/);
     assert.match(source, /`\$\{Math\.round\(percent \* 100\)\}%`/);
-    assert.match(source, /`HP\[\$\{healthBar\}\]\$\{formatPercent\(currentHealth, maxHealth\)\}/);
     assert.match(source, /MP\[\$\{manaBar\}\]\$\{formatPercent\(stats\.mana, stats\.maxMana\)\}/);
     assert.match(source, /XP\[\$\{xpBar\}\]\$\{formatPercent\(stats\.xp, xpNext\)\}/);
     assert.match(source, /LV\$\{stats\.level\} AP\$\{stats\.attributePoints\}`/);
+    assert.doesNotMatch(source, /HP\[/);
+    assert.doesNotMatch(source, /healthBar/);
     assert.doesNotMatch(source, /MANA/);
     assert.doesNotMatch(source, /healthValue/);
     assert.doesNotMatch(source, /\$\{Math\.floor\(stats\.mana\)\}\/\$\{stats\.maxMana\}/);
@@ -27,12 +28,12 @@ describe("HUD contracts", () => {
     assert.doesNotMatch(source, /"\."\.repeat/);
   });
 
-  it("reads player health for the HP bar without touching Dynamic Properties directly", () => {
+  it("keeps the actionbar HUD independent from player health", () => {
     const source = read("src/scripts/ui/HudSystem.ts");
 
-    assert.match(source, /const health = player\.getComponent\("minecraft:health"\);/);
-    assert.match(source, /const currentHealth = health \? Math\.max\(0, Math\.floor\(health\.currentValue\)\) : 0;/);
-    assert.match(source, /const maxHealth = health \? Math\.max\(1, Math\.floor\(health\.effectiveMax\)\) : 1;/);
+    assert.doesNotMatch(source, /player\.getComponent\("minecraft:health"\)/);
+    assert.doesNotMatch(source, /currentHealth/);
+    assert.doesNotMatch(source, /maxHealth/);
     assert.doesNotMatch(source, /getDynamicProperty/);
     assert.doesNotMatch(source, /setDynamicProperty/);
   });

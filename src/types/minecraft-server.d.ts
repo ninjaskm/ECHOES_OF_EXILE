@@ -10,6 +10,11 @@ declare module "@minecraft/server" {
     z: number;
   }
 
+  export interface Vector2 {
+    x: number;
+    y: number;
+  }
+
   export interface WorldInitializeAfterEvent {}
 
   export interface ItemStack {
@@ -49,9 +54,14 @@ declare module "@minecraft/server" {
     setTitle(text: string): void;
   }
 
+  export interface PlayerInputInfo {
+    getMovementVector(): Vector2;
+  }
+
   export interface Player extends Entity {
     readonly typeId: "minecraft:player";
     readonly isJumping: boolean;
+    readonly inputInfo?: PlayerInputInfo;
     readonly onScreenDisplay: ScreenDisplay;
     sendMessage(message: string): void;
     playSound(soundId: string): void;

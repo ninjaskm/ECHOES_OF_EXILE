@@ -31,6 +31,13 @@ Formato: `[DATA] — Descrição` agrupado por versão/fase.
 
 ## Fase 1 — MVP
 
+### [2026-06-13] Dash mana cost tuning
+
+- **O que foi feito:** custo de mana do dash aumentado de 20 para 50, equivalente a 2.5x o custo anterior
+- **Arquivos alterados:** `src/scripts/combat/dashRules.ts`, `BP/scripts/combat/dashRules.js`, `docs/MVP/README.md`, `docs/MVP/BEDROCK_TEST_CHECKLIST.md`, `tests/dashRules.test.js`
+- **Testes:** `npm.cmd run check` passou
+- **ObservaÃ§Ãµes:** HUD compacto foi realinhado ao contrato com colchetes durante a validacao
+
 ### [2026-06-13] Targeting, HUD and dash MVP update
 
 - **O que foi feito:** Rochatus agora preserva o alvo atual quando ele esta com 30% ou menos da vida maxima, o HUD ganhou barras visuais de HP/mana/XP com valores ao lado, e o dash por pena foi removido para manter apenas double-jump

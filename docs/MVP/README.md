@@ -12,7 +12,7 @@ This MVP is a first playable technical slice for the Bedrock addon.
 - Dynamic Properties save for player stats, gear, boss progress and generated portal structure locations.
 - Mana regeneration, XP, level cap 20 and attribute points.
 - Actionbar HUD with HP, mana and XP bars plus numeric values, with a separate dash sidebar.
-- Dash using fast double-jump input: costs 20 mana and has a 2 second cooldown.
+- Dash using fast double-jump input: costs 50 mana and has a 2 second cooldown.
 - Tier 1 portal prototype using the desert portal structure and animated portal particle.
 - Portal Shard activation item.
 - Rochatus placeholder custom entity.

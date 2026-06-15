@@ -6,10 +6,15 @@ import {
   DOUBLE_JUMP_DASH_MAX_DISPLAY_TICKS,
   DOUBLE_JUMP_DASH_WINDOW_TICKS,
   resolveDash,
+  resolveDashDirection,
   resolveDoubleJumpDashInput
 } from "../BP/scripts/combat/dashRules.js";
 
 describe("Dash rules", () => {
+  it("caps the MVP dash mana cost at thirty-five when the previous tuning is higher", () => {
+    assert.equal(DASH_COST, 35);
+  });
+
   it("fails when the player does not have enough mana", () => {
     const result = resolveDash({
       mana: DASH_COST - 1,
@@ -123,5 +128,60 @@ describe("Dash rules", () => {
     assert.equal(result.shouldDash, true);
     assert.equal(result.nextLastJumpTick, undefined);
     assert.equal(result.displayedTickGap, DOUBLE_JUMP_DASH_WINDOW_TICKS);
+  });
+
+  it("uses the player view direction when there is no movement input", () => {
+    const result = resolveDashDirection({
+      viewDirection: { x: 0, y: 0, z: 1 },
+      movementVector: { x: 0, y: 0 }
+    });
+
+    assert.deepEqual(result, { x: 0, z: 1 });
+  });
+
+  it("dashes backward when the movement input is backward", () => {
+    const result = resolveDashDirection({
+      viewDirection: { x: 0, y: 0, z: 1 },
+      movementVector: { x: 0, y: -1 }
+    });
+
+    assert.deepEqual(result, { x: 0, z: -1 });
+  });
+
+  it("dashes right when the movement input strafes right", () => {
+    const result = resolveDashDirection({
+      viewDirection: { x: 0, y: 0, z: 1 },
+      movementVector: { x: 1, y: 0 }
+    });
+
+    assert.deepEqual(result, { x: 1, z: 0 });
+  });
+
+  it("dashes left when the movement input strafes left", () => {
+    const result = resolveDashDirection({
+      viewDirection: { x: 0, y: 0, z: 1 },
+      movementVector: { x: -1, y: 0 }
+    });
+
+    assert.deepEqual(result, { x: -1, z: 0 });
+  });
+
+  it("normalizes partial lateral movement input to full dash distance", () => {
+    const result = resolveDashDirection({
+      viewDirection: { x: 0, y: 0, z: 1 },
+      movementVector: { x: 0.25, y: 0 }
+    });
+
+    assert.deepEqual(result, { x: 1, z: 0 });
+  });
+
+  it("normalizes diagonal movement input for directional dash", () => {
+    const result = resolveDashDirection({
+      viewDirection: { x: 0, y: 0, z: 1 },
+      movementVector: { x: 1, y: 1 }
+    });
+
+    assert.ok(Math.abs(result.x - Math.SQRT1_2) < 0.0001);
+    assert.ok(Math.abs(result.z - Math.SQRT1_2) < 0.0001);
   });
 });

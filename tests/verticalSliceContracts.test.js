@@ -208,7 +208,7 @@ describe("MVP vertical slice contracts", () => {
     const attackSource = read("src/scripts/bosses/attacks/SpikeWaveAttack.ts");
 
     assert.match(source, /const SPIKES_PER_WAVE = 6;/);
-    assert.match(source, /const SPIKE_SPREAD_SIZE = 12;/);
+    assert.match(source, /const SPIKE_SPREAD_SIZE = 15;/);
     assert.match(source, /spikesPerWave: SPIKES_PER_WAVE/);
     assert.match(source, /spreadSize: SPIKE_SPREAD_SIZE/);
     assert.match(attackSource, /for \(let spikeIndex = 0; spikeIndex < this\.config\.spikesPerWave; spikeIndex \+= 1\)/);
@@ -230,8 +230,10 @@ describe("MVP vertical slice contracts", () => {
     assert.equal(components["minecraft:jump.static"].jump_power, 0.59);
     assert.equal(components["minecraft:behavior.nearest_attackable_target"].within_radius, 160);
     assert.equal(components["minecraft:behavior.nearest_attackable_target"].entity_types[0].max_dist, 160);
-    assert.equal(components["minecraft:attack"].damage, 15);
-    assert.equal(components["minecraft:behavior.melee_attack"].cooldown_time, 1.5);
+    assert.equal(components["minecraft:movement"].value, 0.25);
+    assert.equal(components["minecraft:attack"].damage, 20);
+    assert.equal(components["minecraft:behavior.melee_attack"].speed_multiplier, 1.2);
+    assert.equal(components["minecraft:behavior.melee_attack"].cooldown_time, 3);
     assert.equal(components["minecraft:behavior.melee_attack"].track_target, true);
     assert.equal(components["minecraft:health"].value, 500);
     assert.equal(components["minecraft:health"].max, 500);

@@ -1,12 +1,13 @@
 import { system, world } from "@minecraft/server";
 import type { Player } from "@minecraft/server";
-import { applyKnockbackSafe, normalizeVector } from "../core/math.js";
+import { applyKnockbackSafe } from "../core/math.js";
 import { saveSystem } from "../save/SaveSystem.js";
 import {
   DASH_COST,
   DASH_COOLDOWN_TICKS,
   DOUBLE_JUMP_DASH_WINDOW_TICKS,
   resolveDash,
+  resolveDashDirection,
   resolveDoubleJumpDashInput
 } from "./dashRules.js";
 import type { SystemContext } from "../types.js";
@@ -92,8 +93,11 @@ class DashSystem {
       return false;
     }
 
-    const view = normalizeVector(player.getViewDirection());
-    applyKnockbackSafe(player, view.x, view.z, DASH_POWER, 0.15);
+    const direction = resolveDashDirection({
+      viewDirection: player.getViewDirection(),
+      movementVector: this.getMovementVector(player)
+    });
+    applyKnockbackSafe(player, direction.x, direction.z, DASH_POWER, 0.15);
     player.addEffect("resistance", 10, { amplifier: 4, showParticles: false });
     player.playSound("mob.endermen.portal");
 
@@ -103,6 +107,14 @@ class DashSystem {
     this.eventBus.publish("player:statsChanged", { player, stats });
     this.updateDashHud(player, DASH_COOLDOWN_TICKS);
     return true;
+  }
+
+  private getMovementVector(player: Player): { x: number; y: number } {
+    try {
+      return player.inputInfo?.getMovementVector() ?? { x: 0, y: 0 };
+    } catch {
+      return { x: 0, y: 0 };
+    }
   }
 
   private updateDashCooldownHud(): void {

@@ -212,10 +212,25 @@ describe("DashSystem Bedrock contracts", () => {
 
     for (const candidate of [source, builtSource]) {
       assert.match(candidate, /const DASH_POWER = 2\.2;/);
-      assert.match(candidate, /applyKnockbackSafe\(player, view\.x, view\.z, DASH_POWER, 0\.15\);/);
+      assert.match(candidate, /const direction = resolveDashDirection\(\{/);
+      assert.match(candidate, /movementVector: this\.getMovementVector\(player\)/);
+      assert.match(candidate, /applyKnockbackSafe\(player, direction\.x, direction\.z, DASH_POWER, 0\.15\);/);
       assert.match(candidate, /player\.addEffect\("resistance", 10, \{ amplifier: 4, showParticles: false \}\);/);
       assert.match(candidate, /player\.playSound\("mob\.endermen\.portal"\);/);
     }
+  });
+
+  it("reads movement input for directional double-jump dash with a safe fallback", () => {
+    const source = read("src/scripts/combat/DashSystem.ts");
+    const typeSource = read("src/types/minecraft-server.d.ts");
+
+    assert.match(typeSource, /export interface Vector2/);
+    assert.match(typeSource, /export interface PlayerInputInfo/);
+    assert.match(typeSource, /getMovementVector\(\): Vector2;/);
+    assert.match(typeSource, /readonly inputInfo\?: PlayerInputInfo;/);
+    assert.match(source, /private getMovementVector\(player: Player\): \{ x: number; y: number \}/);
+    assert.match(source, /return player\.inputInfo\?\.getMovementVector\(\) \?\? \{ x: 0, y: 0 \};/);
+    assert.match(source, /return \{ x: 0, y: 0 \};/);
   });
 
   it("persists dash resource changes before publishing player stats updates", () => {
