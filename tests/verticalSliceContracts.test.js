@@ -120,16 +120,27 @@ describe("MVP vertical slice contracts", () => {
     assert.match(source, /saveSystem\.setPortalStructures\(\[]\);/);
   });
 
-  it("uses the reset command source as a legacy cleanup fallback for old untracked portals", () => {
+  it("uses the reset command source as a guarded legacy cleanup fallback for old untracked portals", () => {
     const source = read("src/scripts/portals/PortalSystem.ts");
 
     assert.match(source, /this\.clearPortals\(event\.sourceEntity as Player \| undefined\)/);
     assert.match(source, /private getLegacyPortalStructureFallback\(player: Player \| undefined\): PortalStructurePlacement\[]/);
     assertOrdered(source, [
       /if \(structures\.length === 0\) \{/,
-      /structures\.push\(\.\.\.this\.getLegacyPortalStructureFallback\(sourcePlayer\)\);/,
+      /structures\.push\(\.\.\.this\.getLegacyPortalStructureFallback\(sourcePlayer\)\.filter\(\(structure\) => this\.hasPortalStructureSignature\(structure\)\)\);/,
       /}/,
       /for \(const structure of structures\) \{/
+    ]);
+    assert.match(source, /const PORTAL_SIGNATURE_BLOCK_IDS = new Set<string>\(\[/);
+    assert.match(source, /const PORTAL_SIGNATURE_BLOCK_THRESHOLD = 12;/);
+    assert.match(source, /private hasPortalStructureSignature\(\{ dimension, location \}: PortalStructurePlacement\): boolean/);
+    assert.match(source, /private isPortalSignatureBlock\(dimension: Dimension, x: number, y: number, z: number\): boolean/);
+    assert.match(source, /dimension\.runCommand\(`testforblock \$\{x\} \$\{y\} \$\{z\} \$\{blockId\}`\)/);
+    assertOrdered(source, [
+      /private clearPortalStructure\(\{ dimension, location \}: PortalStructurePlacement\): void \{/,
+      /if \(!this\.hasPortalStructureSignature\(\{ dimension, location \}\)\) return;/,
+      /dimension\.runCommand\(/,
+      /fill \$\{x\} \$\{y\} \$\{z\}/
     ]);
   });
 
@@ -215,7 +226,7 @@ describe("MVP vertical slice contracts", () => {
     assert.match(attackSource, /Math\.random\(\) \* this\.config\.spreadSize/);
   });
 
-  it("gives Rochatus Bedrock AI components to follow and attack nearby players", () => {
+  it("gives Rochatus Bedrock AI components to follow players without native melee attacks", () => {
     const entity = JSON.parse(read("BP/entities/rochatus.json"));
     const components = entity["minecraft:entity"].components;
 
@@ -225,16 +236,17 @@ describe("MVP vertical slice contracts", () => {
     assert.ok(components["minecraft:navigation.walk"]);
     assert.ok(components["minecraft:follow_range"]);
     assert.ok(components["minecraft:behavior.nearest_attackable_target"]);
-    assert.ok(components["minecraft:behavior.melee_attack"]);
-    assert.equal(components["minecraft:follow_range"].value, 160);
+    assert.ok(components["minecraft:behavior.move_towards_target"]);
+    assert.equal(components["minecraft:follow_range"].value, 80);
     assert.equal(components["minecraft:jump.static"].jump_power, 0.59);
-    assert.equal(components["minecraft:behavior.nearest_attackable_target"].within_radius, 160);
-    assert.equal(components["minecraft:behavior.nearest_attackable_target"].entity_types[0].max_dist, 160);
-    assert.equal(components["minecraft:movement"].value, 0.25);
-    assert.equal(components["minecraft:attack"].damage, 20);
-    assert.equal(components["minecraft:behavior.melee_attack"].speed_multiplier, 1.2);
-    assert.equal(components["minecraft:behavior.melee_attack"].cooldown_time, 3);
-    assert.equal(components["minecraft:behavior.melee_attack"].track_target, true);
+    assert.equal(components["minecraft:behavior.nearest_attackable_target"].within_radius, 80);
+    assert.equal(components["minecraft:behavior.nearest_attackable_target"].entity_types[0].max_dist, 80);
+    assert.equal(components["minecraft:movement"].value, 0.2);
+    assert.equal(components["minecraft:attack"].damage, 0);
+    assert.equal(components["minecraft:behavior.move_towards_target"].priority, 2);
+    assert.equal(components["minecraft:behavior.move_towards_target"].speed_multiplier, 1);
+    assert.equal(components["minecraft:behavior.move_towards_target"].within_radius, 80);
+    assert.ok(!components["minecraft:behavior.melee_attack"]);
     assert.equal(components["minecraft:health"].value, 500);
     assert.equal(components["minecraft:health"].max, 500);
     assert.deepEqual(components["minecraft:behavior.nearest_attackable_target"].entity_types[0].filters, {
@@ -247,7 +259,7 @@ describe("MVP vertical slice contracts", () => {
   it("keeps Rochatus scripted arena targeting aligned with the follow distance", () => {
     const source = read("src/scripts/bosses/rochatus/RochatusSystem.ts");
 
-    assert.match(source, /const BOSS_RADIUS = 160;/);
+    assert.match(source, /const BOSS_RADIUS = 80;/);
     assert.match(source, /super\("Rochatus", BOSS_RADIUS\);/);
   });
 });

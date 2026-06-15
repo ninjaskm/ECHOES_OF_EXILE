@@ -13,7 +13,8 @@ describe("reusable boss architecture contracts", () => {
       "src/scripts/bosses/base/BossAttack.ts",
       "src/scripts/bosses/attacks/RollAttack.ts",
       "src/scripts/bosses/attacks/SpikeWaveAttack.ts",
-      "src/scripts/bosses/attacks/QuakeAttack.ts"
+      "src/scripts/bosses/attacks/QuakeAttack.ts",
+      "src/scripts/bosses/attacks/TailSwipeAttack.ts"
     ];
 
     for (const path of expectedFiles) {
@@ -25,6 +26,7 @@ describe("reusable boss architecture contracts", () => {
     assert.match(read("src/scripts/bosses/attacks/RollAttack.ts"), /export\s+class\s+RollAttack/);
     assert.match(read("src/scripts/bosses/attacks/SpikeWaveAttack.ts"), /export\s+class\s+SpikeWaveAttack/);
     assert.match(read("src/scripts/bosses/attacks/QuakeAttack.ts"), /export\s+class\s+QuakeAttack/);
+    assert.match(read("src/scripts/bosses/attacks/TailSwipeAttack.ts"), /export\s+class\s+TailSwipeAttack/);
   });
 
   it("keeps Rochatus attacks wired through reusable attack classes", () => {
@@ -34,6 +36,7 @@ describe("reusable boss architecture contracts", () => {
     assert.match(source, /new\s+RollAttack/);
     assert.match(source, /new\s+SpikeWaveAttack/);
     assert.match(source, /new\s+QuakeAttack/);
+    assert.match(source, /new\s+TailSwipeAttack/);
     assert.doesNotMatch(source, /updateRoll\(/);
     assert.doesNotMatch(source, /updateSpikes\(/);
     assert.doesNotMatch(source, /updateQuake\(/);
@@ -95,7 +98,9 @@ describe("reusable boss architecture contracts", () => {
     assert.match(source, /damage: DAMAGE\.roll,/);
     assert.match(source, /effect: \{ type: "slowness", duration: 120, options: \{ amplifier: 1 \} \}/);
     assert.match(source, /ctx\.attack = this\.selectNextAttack\(ctx\);/);
-    assert.match(source, /availableAttacks\[Math\.floor\(Math\.random\(\) \* availableAttacks\.length\)\]/);
+    assert.match(source, /for \(const attack of this\.getRandomizedAttacks\(\)\) \{/);
+    assert.match(source, /private getRandomizedAttacks\(\): BossAttack\[]/);
+    assert.match(source, /const randomIndex = Math\.floor\(Math\.random\(\) \* \(index \+ 1\)\);/);
     assert.match(source, /currentTick >= \(context\.attackAvailableTicks\[attack\.id\] \?\? 0\)/);
     assert.match(source, /context\.attackAvailableTicks\[attack\.id\] = currentTick \+ this\.getAttackIntervalTicks\(attack\);/);
     assert.match(source, /if \(attack\.id === "roll"\) return ROLL_ATTACK_INTERVAL_TICKS;/);
@@ -240,15 +245,87 @@ describe("reusable boss architecture contracts", () => {
 
   it("gives players a larger recovery window between Rochatus normal melee hits", () => {
     const entity = JSON.parse(read("BP/entities/rochatus.json"));
-    const melee = entity["minecraft:entity"].components["minecraft:behavior.melee_attack"];
-
     const components = entity["minecraft:entity"].components;
+    const rochatusSource = read("src/scripts/bosses/rochatus/RochatusSystem.ts");
+    const attackSource = read("src/scripts/bosses/attacks/TailSwipeAttack.ts");
 
-    assert.equal(components["minecraft:attack"].damage, 20);
-    assert.equal(components["minecraft:movement"].value, 0.25);
-    assert.equal(melee.cooldown_time, 3);
-    assert.equal(melee.speed_multiplier, 1.2);
-    assert.equal(melee.track_target, true);
+    assert.equal(components["minecraft:movement"].value, 0.2);
+    assert.equal(components["minecraft:attack"].damage, 0);
+    assert.ok(!components["minecraft:behavior.melee_attack"]);
+    assert.equal(components["minecraft:behavior.move_towards_target"].within_radius, 80);
+    assert.match(rochatusSource, /const MELEE_ATTACK_COOLDOWN_TICKS = 80;/);
+    assert.match(rochatusSource, /private readonly tailSwipe = new TailSwipeAttack/);
+    assert.match(rochatusSource, /damage: 20,/);
+    assert.match(rochatusSource, /telegraphTicks: 7,/);
+    assert.match(rochatusSource, /range: 4\.8,/);
+    assert.match(rochatusSource, /halfWidth: 1\.2,/);
+    assert.match(rochatusSource, /warningParticleId: "exile:warning_base"/);
+    assert.match(rochatusSource, /this\.updateNormalMelee\(entry\.machine\.context\);/);
+    assert.doesNotMatch(rochatusSource, /MELEE: \{/);
+    assert.doesNotMatch(rochatusSource, /fsm\.transition\("MELEE"\)/);
+    assert.match(rochatusSource, /const MELEE_REQUIRED_TARGET_RANGE = 3;/);
+    assert.match(attackSource, /readonly id = "tail_swipe";/);
+    assert.match(attackSource, /private readonly states = new Map<string, TailSwipeState>\(\);/);
+    assert.match(attackSource, /lockedLocation: \{ x: context\.boss\.location\.x, y: context\.boss\.location\.y, z: context\.boss\.location\.z \}/);
+    assert.match(attackSource, /this\.holdBossStill\(context, state\);/);
+    assert.match(attackSource, /private holdBossStill\(context: BossAttackContext, state: TailSwipeState\): void/);
+    assert.match(attackSource, /context\.boss\.runCommand\(`tp @s \$\{state\.lockedLocation\.x\} \$\{state\.lockedLocation\.y\} \$\{state\.lockedLocation\.z\}`\);/);
+    assert.match(attackSource, /if \(context\.elapsedTicks < this\.config\.telegraphTicks\)/);
+    assert.match(attackSource, /private hitPlayersInTailBox\(context: BossAttackContext, state: TailSwipeState\): void/);
+    assert.match(attackSource, /forwardDistance >= 0 && forwardDistance <= this\.config\.range/);
+    assert.match(attackSource, /Math\.abs\(sideDistance\) <= this\.config\.halfWidth/);
+    assert.match(attackSource, /player\.applyDamage\(this\.config\.damage, \{ cause: "entityAttack", damagingEntity: context\.boss \}\);/);
+  });
+
+  it("keeps Rochatus limited to the four designed attacks", () => {
+    const entity = JSON.parse(read("BP/entities/rochatus.json"));
+    const components = entity["minecraft:entity"].components;
+    const rochatusSource = read("src/scripts/bosses/rochatus/RochatusSystem.ts");
+
+    assert.ok(!components["minecraft:behavior.melee_attack"]);
+    assert.ok(components["minecraft:behavior.move_towards_target"]);
+    assert.equal(components["minecraft:attack"].damage, 0);
+    assert.match(rochatusSource, /private readonly tailSwipe = new TailSwipeAttack/);
+    assert.match(rochatusSource, /new RollAttack/);
+    assert.match(rochatusSource, /new SpikeWaveAttack/);
+    assert.match(rochatusSource, /new QuakeAttack/);
+    assert.doesNotMatch(rochatusSource, /new\s+(?!RollAttack|SpikeWaveAttack|QuakeAttack|TailSwipeAttack)[A-Z]\w*Attack/);
+  });
+
+  it("gates close-range Rochatus attacks by target distance before starting them", () => {
+    const rochatusSource = read("src/scripts/bosses/rochatus/RochatusSystem.ts");
+
+    assert.match(rochatusSource, /const MELEE_REQUIRED_TARGET_RANGE = 3;/);
+    assert.match(rochatusSource, /const ROLL_REQUIRED_TARGET_RANGE = 6;/);
+    assert.match(rochatusSource, /const QUAKE_REQUIRED_TARGET_RANGE = 4;/);
+    assert.match(rochatusSource, /this\.horizontalDistanceToTarget\(context\) > MELEE_REQUIRED_TARGET_RANGE/);
+    assert.match(rochatusSource, /if \(attack\.id === "roll" && this\.horizontalDistanceToTarget\(context\) > ROLL_REQUIRED_TARGET_RANGE\) return false;/);
+    assert.match(rochatusSource, /if \(attack\.id === "quake" && this\.horizontalDistanceToTarget\(context\) > QUAKE_REQUIRED_TARGET_RANGE\) return false;/);
+    assert.match(rochatusSource, /for \(const attack of this\.getRandomizedAttacks\(\)\) \{/);
+    assert.doesNotMatch(rochatusSource, /const availableAttacks = this\.attacks\.filter/);
+    assert.doesNotMatch(rochatusSource, /this\.horizontalDistanceToTarget\(context\) > 4\.5/);
+  });
+
+  it("defines the tail swipe warning base as a square four-frame particle", () => {
+    assert.ok(existsSync("RP/textures/particle/warning_base.png"), "tail swipe warning texture should exist");
+    assert.ok(existsSync("RP/particles/warning_base.json"), "tail swipe warning particle should exist");
+
+    const particle = JSON.parse(read("RP/particles/warning_base.json"));
+    const description = particle.particle_effect.description;
+    const billboard = particle.particle_effect.components["minecraft:particle_appearance_billboard"];
+    const rochatusSource = read("src/scripts/bosses/rochatus/RochatusSystem.ts");
+
+    assert.equal(description.identifier, "exile:warning_base");
+    assert.equal(description.basic_render_parameters.texture, "textures/particle/warning_base");
+    assert.deepEqual(billboard.size, [1.2, 1.2]);
+    assert.equal(billboard.uv.texture_width, 256);
+    assert.equal(billboard.uv.texture_height, 64);
+    assert.deepEqual(billboard.uv.uv_size, [64, 64]);
+    assert.match(JSON.stringify(billboard.uv), /variable\.particle_age \/ 0\.175/);
+    assert.match(rochatusSource, /warningParticleId: "exile:warning_base"/);
+    assert.match(rochatusSource, /RUN_TELEGRAPH_PARTICLE = "exile:warning_run_sheet"/);
+    assert.match(rochatusSource, /SPIKE_TELEGRAPH_PARTICLE = "exile:warning_sheet_spikes"/);
+    assert.match(rochatusSource, /QUAKE_TELEGRAPH_PARTICLE = "exile:quake_wave_red"/);
   });
 
   it("renders Rochatus spikes as texture-only particles without physical blocks", () => {

@@ -13,6 +13,14 @@ const PORTAL_ANIMATED_PARTICLE_ID = "exile:portal_animated";
 const PORTAL_STRUCTURE_OFFSET = { x: -5, y: 0, z: -6 };
 const PORTAL_STRUCTURE_SIZE = { x: 11, y: 12, z: 13 };
 const PORTAL_EFFECT_OFFSET = { x: 0, y: 3, z: 0 };
+const PORTAL_SIGNATURE_BLOCK_THRESHOLD = 12;
+const PORTAL_SIGNATURE_BLOCK_IDS = new Set<string>([
+  "minecraft:chiseled_red_sandstone",
+  "minecraft:chiseled_resin_bricks",
+  "minecraft:mud_brick_stairs",
+  "minecraft:mud_bricks",
+  "minecraft:red_sandstone_wall"
+]);
 
 interface PortalStructurePlacement {
   dimension: Dimension;
@@ -102,7 +110,7 @@ class PortalSystem {
       ...activePortalStructures
     ]);
     if (structures.length === 0) {
-      structures.push(...this.getLegacyPortalStructureFallback(sourcePlayer));
+      structures.push(...this.getLegacyPortalStructureFallback(sourcePlayer).filter((structure) => this.hasPortalStructureSignature(structure)));
     }
 
     for (const structure of structures) {
@@ -171,8 +179,39 @@ class PortalSystem {
     ];
   }
 
+  private hasPortalStructureSignature({ dimension, location }: PortalStructurePlacement): boolean {
+    let matchingBlocks = 0;
+
+    for (let xOffset = 0; xOffset < PORTAL_STRUCTURE_SIZE.x; xOffset += 1) {
+      for (let yOffset = 0; yOffset < PORTAL_STRUCTURE_SIZE.y; yOffset += 1) {
+        for (let zOffset = 0; zOffset < PORTAL_STRUCTURE_SIZE.z; zOffset += 1) {
+          if (!this.isPortalSignatureBlock(dimension, location.x + xOffset, location.y + yOffset, location.z + zOffset)) continue;
+
+          matchingBlocks += 1;
+          if (matchingBlocks >= PORTAL_SIGNATURE_BLOCK_THRESHOLD) return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  private isPortalSignatureBlock(dimension: Dimension, x: number, y: number, z: number): boolean {
+    for (const blockId of PORTAL_SIGNATURE_BLOCK_IDS) {
+      try {
+        const result = dimension.runCommand(`testforblock ${x} ${y} ${z} ${blockId}`) as { successCount?: number };
+        if ((result.successCount ?? 0) > 0) return true;
+      } catch {
+        // A failed testforblock only means this coordinate is not that signature block.
+      }
+    }
+
+    return false;
+  }
+
   private clearPortalStructure({ dimension, location }: PortalStructurePlacement): void {
     const { x, y, z } = location;
+    if (!this.hasPortalStructureSignature({ dimension, location })) return;
 
     try {
       dimension.runCommand(

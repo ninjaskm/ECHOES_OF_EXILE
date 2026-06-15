@@ -9,11 +9,12 @@ import type { Portal, SystemContext } from "../../types.js";
 import { QuakeAttack } from "../attacks/QuakeAttack.js";
 import { RollAttack } from "../attacks/RollAttack.js";
 import { SpikeWaveAttack } from "../attacks/SpikeWaveAttack.js";
+import { TailSwipeAttack } from "../attacks/TailSwipeAttack.js";
 import { BaseBossSystem } from "../base/BaseBossSystem.js";
 import type { BaseBossContext } from "../base/BaseBossSystem.js";
 import type { BossAttack } from "../base/BossAttack.js";
 
-const BOSS_RADIUS = 160;
+const BOSS_RADIUS = 80;
 const BASE_HEALTH = 400;
 const BOSS_BAR_MAX_HEALTH = 500;
 const SPIKES_PER_WAVE = 6;
@@ -23,6 +24,10 @@ const SPIKE_ATTACK_INTERVAL_TICKS = 150;
 const QUAKE_ATTACK_INTERVAL_TICKS = 150;
 const FIRST_SPECIAL_DELAY_TICKS = 100;
 const ATTACK_RECOVERY_TICKS = 24;
+const MELEE_ATTACK_COOLDOWN_TICKS = 80;
+const MELEE_REQUIRED_TARGET_RANGE = 3;
+const ROLL_REQUIRED_TARGET_RANGE = 6;
+const QUAKE_REQUIRED_TARGET_RANGE = 4;
 const SPECIAL_TELEGRAPH_TICKS = 20;
 const TELEGRAPH_REFRESH_TICKS = 5;
 const COMMAND_SPAWN_FORWARD_DISTANCE = 6;
@@ -39,12 +44,25 @@ const DAMAGE = {
 interface RochatusContext extends BaseBossContext {
   attack: BossAttack;
   attackAvailableTicks: Record<string, number>;
+  meleeAvailableTick: number;
+  meleeElapsedTicks: number | undefined;
 }
 
 type RochatusSpawnPortal = Pick<Portal, "dimension" | "location">;
 
 class RochatusSystem extends BaseBossSystem<RochatusContext> {
   private eventBus!: SystemContext["eventBus"];
+
+  private readonly tailSwipe = new TailSwipeAttack({
+    damage: 20,
+    range: 4.8,
+    halfWidth: 1.2,
+    telegraphTicks: 7,
+    totalTicks: 24,
+    knockbackStrength: 1,
+    warningParticleId: "exile:warning_base",
+    message: "Rochatus tail swipe"
+  });
 
   private readonly attacks: BossAttack[] = [
     new RollAttack({
@@ -157,6 +175,8 @@ class RochatusSystem extends BaseBossSystem<RochatusContext> {
       attackIndex: -1,
       attack: this.attacks[0] ?? this.createFallbackAttack(),
       attackAvailableTicks: {},
+      meleeAvailableTick: 0,
+      meleeElapsedTicks: undefined,
       playersInArena: this.getPlayersInArena(boss),
       elapsedTicks: 0,
       arenaMessage: (message) => this.arenaMessage(boss, message),
@@ -253,6 +273,7 @@ class RochatusSystem extends BaseBossSystem<RochatusContext> {
       }
 
       entry.machine.update();
+      this.updateNormalMelee(entry.machine.context);
       this.updateBossNameTag(entry.boss);
     }
   }
@@ -276,25 +297,74 @@ class RochatusSystem extends BaseBossSystem<RochatusContext> {
 
   private selectNextAttack(context: RochatusContext): BossAttack {
     const now = system.currentTick;
-    const availableAttacks = this.attacks.filter((attack) => this.isAttackAvailable(context, attack, now));
 
-    if (availableAttacks.length > 0) {
-      const selected = availableAttacks[Math.floor(Math.random() * availableAttacks.length)];
-      if (!selected) return this.createFallbackAttack();
-      context.attackIndex = this.attacks.indexOf(selected);
-      this.markAttackUsed(context, selected, now);
-      return selected;
+    for (const attack of this.getRandomizedAttacks()) {
+      if (!this.isAttackAvailable(context, attack, now)) continue;
+
+      context.attackIndex = this.attacks.indexOf(attack);
+      this.markAttackUsed(context, attack, now);
+      return attack;
     }
 
     return this.createFallbackAttack();
   }
 
+  private getRandomizedAttacks(): BossAttack[] {
+    const attacks = [...this.attacks];
+
+    for (let index = attacks.length - 1; index > 0; index -= 1) {
+      const randomIndex = Math.floor(Math.random() * (index + 1));
+      const attack = attacks[index];
+      attacks[index] = attacks[randomIndex] as BossAttack;
+      attacks[randomIndex] = attack as BossAttack;
+    }
+
+    return attacks;
+  }
+
   private isAttackAvailable(context: RochatusContext, attack: BossAttack, currentTick: number): boolean {
+    if (attack.id === "roll" && this.horizontalDistanceToTarget(context) > ROLL_REQUIRED_TARGET_RANGE) return false;
+    if (attack.id === "quake" && this.horizontalDistanceToTarget(context) > QUAKE_REQUIRED_TARGET_RANGE) return false;
     return currentTick >= (context.attackAvailableTicks[attack.id] ?? 0);
   }
 
   private markAttackUsed(context: RochatusContext, attack: BossAttack, currentTick: number): void {
     context.attackAvailableTicks[attack.id] = currentTick + this.getAttackIntervalTicks(attack);
+  }
+
+  private updateNormalMelee(context: RochatusContext): void {
+    if (!context.target || !context.target.isValid) {
+      context.meleeElapsedTicks = undefined;
+      return;
+    }
+
+    if (context.meleeElapsedTicks !== undefined) {
+      this.tailSwipe.onTick(
+        this.createAttackContext(context, context.meleeElapsedTicks, () => {
+          context.meleeElapsedTicks = undefined;
+        })
+      );
+      if (context.meleeElapsedTicks !== undefined) context.meleeElapsedTicks += 1;
+      return;
+    }
+
+    if (!context.target || system.currentTick < context.meleeAvailableTick) return;
+    if (this.horizontalDistanceToTarget(context) > MELEE_REQUIRED_TARGET_RANGE) return;
+
+    context.meleeAvailableTick = system.currentTick + MELEE_ATTACK_COOLDOWN_TICKS;
+    context.meleeElapsedTicks = 0;
+    this.tailSwipe.onEnter?.(
+      this.createAttackContext(context, 0, () => {
+        context.meleeElapsedTicks = undefined;
+      })
+    );
+  }
+
+  private horizontalDistanceToTarget(context: RochatusContext): number {
+    if (!context.target) return Number.POSITIVE_INFINITY;
+    const dx = context.target.location.x - context.boss.location.x;
+    const dz = context.target.location.z - context.boss.location.z;
+    return Math.sqrt(dx * dx + dz * dz);
   }
 
   private renderAttackTelegraph(context: RochatusContext): void {
